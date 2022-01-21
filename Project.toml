@@ -1,0 +1,13 @@
+name = "LowRankIntegrators"
+uuid = "a4d2327a-b40c-407e-b18c-dbb78b346b8e"
+authors = ["Flemming Holtorf"]
+version = "0.1.0"
+
+[compat]
+julia = "1.6"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
