@@ -60,7 +60,7 @@ function alg_cache(prob::MatrixDEProblem, alg::PrimalLieTrotterProjectorSplittin
                     return prob.f(US*V',t)*V
                 end 
     else
-        K_rhs = alg.K_rhs
+        K_rhs = alg.alg_params.K_rhs
     end
     KProblem = ODEProblem(K_rhs, US, tspan, u.V)
     KIntegrator = init(KProblem, alg.alg_params.KAlg, save_everystep=false)
@@ -136,7 +136,7 @@ function alg_cache(prob::MatrixDEProblem, alg::DualLieTrotterProjectorSplitting,
                     return prob.f(US*V',t)*V
                 end 
     else
-        K_rhs = alg.K_rhs
+        K_rhs = alg.alg_params.K_rhs
     end
     KProblem = ODEProblem(K_rhs, US, tspan, u.V)
     KIntegrator = init(KProblem, alg.alg_params.KAlg, save_everystep=false)
