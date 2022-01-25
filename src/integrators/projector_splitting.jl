@@ -2,9 +2,12 @@ struct LieTrotterProjectorSplitting_Params{sType, lType, kType}
     S_rhs # rhs of S step (core projected rhs)
     L_rhs # rhs of L step (range projected rhs)
     K_rhs # rhs of K step (corange projected rhs)
-    SAlg::sType
-    LAlg::lType
-    KAlg::kType
+    S_kwargs
+    L_kwargs
+    K_kwargs
+    S_alg::sType
+    L_alg::lType
+    K_alg::kType
 end
 
 struct LieTrotterProjectorSplitting_Cache{uType,SIntegratorType,LIntegratorType,KIntegratorType,yType} <: AbstractDLRAlgorithm_Cache
@@ -24,25 +27,32 @@ end
 struct PrimalLieTrotterProjectorSplitting{sType, lType, kType} <: AbstractDLRAlgorithm
     alg_params::LieTrotterProjectorSplitting_Params{sType, lType, kType}
 end
-function PrimalLieTrotterProjectorSplitting(;S_rhs = nothing, L_rhs = nothing, K_rhs = nothing,
+function PrimalLieTrotterProjectorSplitting(;S_rhs = nothing, L_rhs = nothing, K_rhs = nothing, 
+                                             S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
                                              S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5()) 
-    return PrimalLieTrotterProjectorSplitting(LieTrotterProjectorSplitting_Params(S_rhs,L_rhs,K_rhs,S_alg,L_alg,K_alg))
+    params = LieTrotterProjectorSplitting_Params(S_rhs,L_rhs,K_rhs,S_kwargs,L_kwargs,K_kwargs,S_alg,L_alg,K_alg)
+    return PrimalLieTrotterProjectorSplitting(params)
 end 
 
 struct DualLieTrotterProjectorSplitting{sType, lType, kType} <: AbstractDLRAlgorithm
     alg_params::LieTrotterProjectorSplitting_Params{sType, lType, kType}
 end
 function DualLieTrotterProjectorSplitting(;S_rhs = nothing, L_rhs = nothing, K_rhs = nothing,
-                                          S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5())
-    return DualLieTrotterProjectorSplitting(LieTrotterProjectorSplitting_Params(S_rhs,L_rhs,K_rhs,S_alg,L_alg,K_alg))          
+                                           S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
+                                           S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5())
+    
+    params = LieTrotterProjectorSplitting_Params(S_rhs,L_rhs,K_rhs,S_kwargs,L_kwargs,K_kwargs,S_alg,L_alg,K_alg)
+    return DualLieTrotterProjectorSplitting(params)          
 end
 
 struct StrangProjectorSplitting{sType, lType, kType} <: AbstractDLRAlgorithm
     alg_params::LieTrotterProjectorSplitting_Params{sType, lType, kType}
 end
 function StrangProjectorSplitting(;S_rhs = nothing, L_rhs = nothing, K_rhs = nothing,
-                                  S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5())
-    return StrangProjectorSplitting(LieTrotterProjectorSplitting_Params(S_rhs,L_rhs,K_rhs,S_alg,L_alg,K_alg))          
+                                   S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
+                                   S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5())
+    params = LieTrotterProjectorSplitting_Params(S_rhs,L_rhs,K_rhs,S_kwargs,L_kwargs,K_kwargs,S_alg,L_alg,K_alg)
+    return StrangProjectorSplitting(params)          
 end
 
 struct StrangProjectorSplitting_Cache <: AbstractDLRAlgorithm_Cache
@@ -56,40 +66,34 @@ function alg_cache(prob::MatrixDEProblem, alg::PrimalLieTrotterProjectorSplittin
     tspan = (t0,t0+dt)
     
     if isnothing(alg.alg_params.K_rhs)
-        K_rhs = function (US, V, t)
+        alg.alg_params.K_rhs = function (US, V, t)
                     return prob.f(US*V',t)*V
                 end 
-    else
-        K_rhs = alg.alg_params.K_rhs
     end
-    KProblem = ODEProblem(K_rhs, US, tspan, u.V)
-    KIntegrator = init(KProblem, alg.alg_params.KAlg, save_everystep=false)
+    KProblem = ODEProblem(alg.alg_params.K_rhs, US, tspan, u.V)
+    KIntegrator = init(KProblem, alg.alg_params.K_alg, save_everystep=false, alg.alg_params.K_kwargs...)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
     QRK = qr!(US)
     u.U .= Matrix(QRK.Q) 
 
     if isnothing(alg.alg_params.S_rhs)
-        S_rhs = function (S, p, t)
+        alg.alg_params.S_rhs = function (S, p, t)
                     return -p[1]'*prob.f(p[1]*S*p[2]',t)*p[2]
-                end 
-    else
-        S_rhs = alg.alg_params.S_rhs
+                end
     end    
-    SProblem = ODEProblem(S_rhs, QRK.R, tspan, (u.U, u.V))
-    SIntegrator = init(SProblem, alg.alg_params.SAlg, save_everystep=false)
+    SProblem = ODEProblem(alg.alg_params.S_rhs, QRK.R, tspan, (u.U, u.V))
+    SIntegrator = init(SProblem, alg.alg_params.S_alg, save_everystep=false, alg.alg_params.S_kwargs...)
     step!(SIntegrator, dt, true)
     VS = u.V*SIntegrator.u'
 
     if isnothing(alg.alg_params.L_rhs)
-        L_rhs = function (VS, U, t)
+        alg.alg_params.L_rhs = function (VS, U, t)
                     return prob.f(U*VS',t)'*U
-                end 
-    else
-        L_rhs = alg.alg_params.L_rhs
+                end
     end
-    LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
-    LIntegrator = init(LProblem, alg.alg_params.LAlg, save_everystep=false)
+    LProblem = ODEProblem(alg.alg_params.L_rhs, VS, tspan, u.U)
+    LIntegrator = init(LProblem, alg.alg_params.L_alg, save_everystep=false, alg.alg_params.L_kwargs...)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
     QRL = qr!(VS)
@@ -106,40 +110,34 @@ function alg_cache(prob::MatrixDEProblem, alg::DualLieTrotterProjectorSplitting,
     tspan = (t0,t0+dt)
     
     if isnothing(alg.alg_params.L_rhs)
-        L_rhs = function (VS, U, t)
+        alg.alg_params.L_rhs = function (VS, U, t)
                     return prob.f(U*VS',t)'*U
-                end 
-    else
-        L_rhs = alg.alg_params.L_rhs
+                end
     end
-    LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
-    LIntegrator = init(LProblem, alg.alg_params.LAlg, save_everystep=false)
+    LProblem = ODEProblem(alg.alg_params.L_rhs, VS, tspan, u.U)
+    LIntegrator = init(LProblem, alg.alg_params.L_alg, save_everystep=false, alg.alg_params.L_kwargs...)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
     QRL = qr!(VS)
     u.V .= Matrix(QRL.Q)
     
     if isnothing(alg.alg_params.S_rhs)
-        S_rhs = function (S, (U,V), t)
+        alg.alg_params.S_rhs = function (S, (U,V), t)
                     return -U'*prob.f(U*S*V',t)*V
                 end 
-    else
-        S_rhs = alg.alg_params.S_rhs
     end
-    SProblem = ODEProblem(S_rhs, Matrix(QRL.R'), tspan, (u.U, u.V))
-    SIntegrator = init(SProblem, alg.alg_params.SAlg, save_everystep=false)
+    SProblem = ODEProblem(alg.alg_params.S_rhs, Matrix(QRL.R'), tspan, (u.U, u.V))
+    SIntegrator = init(SProblem, alg.alg_params.S_alg, save_everystep=false, alg.alg_params.S_kwargs...)
     step!(SIntegrator, dt, true)
     US = u.U*SIntegrator.u
 
     if isnothing(alg.alg_params.K_rhs)
-        K_rhs = function (US, V, t)
+        alg.alg_params.K_rhs = function (US, V, t)
                     return prob.f(US*V',t)*V
-                end 
-    else
-        K_rhs = alg.alg_params.K_rhs
+                end
     end
-    KProblem = ODEProblem(K_rhs, US, tspan, u.V)
-    KIntegrator = init(KProblem, alg.alg_params.KAlg, save_everystep=false)
+    KProblem = ODEProblem(alg.alg_params.K_rhs, US, tspan, u.V)
+    KIntegrator = init(KProblem, alg.alg_params.K_alg, save_everystep=false, alg.alg_params.K_kwargs...)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
     QRK = qr!(US)
@@ -225,7 +223,7 @@ end
 function primal_LT_step!(u, cache, t, dt)
     @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator, y, ycurr, yprev, Δy = cache
 
-    if !isnothing(y)
+    if !isnothing(y) # should be done via dispatch
         ycurr .= y(t+dt)
         Δy .= ycurr - yprev
         yprev .= ycurr
@@ -255,7 +253,7 @@ end
 
 function dual_LT_step!(u, cache, t, dt)
     @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator, y, ycurr, yprev, Δy = cache
-    if !isnothing(y)
+    if !isnothing(y) # should be done via dispatch
         ycurr .= y(t+dt)
         Δy .= ycurr - yprev
         yprev .= ycurr
@@ -301,7 +299,7 @@ function step!(integrator::DLRIntegrator, alg::StrangProjectorSplitting, dt)
     @unpack u, t, iter, cache = integrator
     @unpack primal_cache, dual_cache = cache
     primal_LT_step!(u, primal_cache, t, dt/2)
-    dual_LT_step!(u, primal_cache, t + dt/2, dt/2)
+    dual_LT_step!(u, dual_cache, t + dt/2, dt/2)
     integrator.t += dt
     integrator.iter += 1
 end

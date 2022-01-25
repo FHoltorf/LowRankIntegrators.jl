@@ -2,17 +2,22 @@ struct UnconventionalAlgorithm_Params{sType, lType, kType}
     S_rhs # rhs of S step (core projected rhs)
     L_rhs # rhs of L step (range projected rhs)
     K_rhs # rhs of K step (corange projected rhs)
-    SAlg::sType
-    LAlg::lType
-    KAlg::kType
+    S_kwargs
+    L_kwargs
+    K_kwargs
+    S_alg::sType
+    L_alg::lType
+    K_alg::kType
 end
 
 struct UnconventionalAlgorithm{sType, lType, kType} <: AbstractDLRAlgorithm
     alg_params::UnconventionalAlgorithm_Params{sType, lType, kType}
 end
 function UnconventionalAlgorithm(; S_rhs = nothing, L_rhs = nothing, K_rhs = nothing,
-                                   SAlg = Tsit5(), LAlg = Tsit5(), KAlg = Tsit5())
-    return UnconventionalAlgorithm(UnconventionalAlgorithm_Params(S_rhs, L_rhs, K_rhs, SAlg, LAlg, KAlg))
+                                   S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
+                                   S_alg = Tsit5(), L_alg = Tsit5(), K_alg = Tsit5())
+    params = UnconventionalAlgorithm_Params(S_rhs, L_rhs, K_rhs, S_kwargs, L_kwargs, K_kwargs, S_alg, L_alg, K_alg)
+    return UnconventionalAlgorithm(params)
 end
 
 struct UnconventionalAlgorithm_Cache{uType,SIntegratorType,LIntegratorType,KIntegratorType,yType} <: AbstractDLRAlgorithm_Cache
@@ -37,29 +42,25 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     tspan = (t0,t0+dt)
     
     if isnothing(alg.alg_params.K_rhs)
-        K_rhs = function (US, V, t)
+        alg.alg_params.K_rhs = function (US, V, t)
                     return prob.f(US*V',t)*V
                 end 
-    else
-        K_rhs = alg.K_rhs
     end
-    KProblem = ODEProblem(K_rhs, US, tspan, u.V)
-    KIntegrator = init(KProblem, alg.alg_params.KAlg, save_everystep=false)
+    KProblem = ODEProblem(alg.alg_params.K_rhs, US, tspan, u.V)
+    KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
     QRK = qr!(US)
     M = Matrix(QRK.Q)'*u.U
     
     if isnothing(alg.alg_params.L_rhs)
-        L_rhs = function (VS, U, t)
+        alg.alg_params.L_rhs = function (VS, U, t)
                     return prob.f(U*VS',t)'*U
-                end 
-    else
-        L_rhs = alg.alg_params.L_rhs
+                end
     end
     VS = u.V*u.S'
-    LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
-    LIntegrator = init(LProblem, alg.alg_params.LAlg, save_everystep=false)
+    LProblem = ODEProblem(alg.alg_params.L_rhs, VS, tspan, u.U)
+    LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
     QRL = qr!(VS)
@@ -69,14 +70,12 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     u.U .= Matrix(QRK.Q)
     
     if isnothing(alg.alg_params.S_rhs)
-        S_rhs = function (S, p, t)
+        alg.alg_params.S_rhs = function (S, p, t)
                     return p[1]'*prob.f(p[1]*S*p[2]',t)*p[2]
-                end 
-    else
-        S_rhs = alg.alg_params.S_rhs
+                end
     end
-    SProblem = ODEProblem(S_rhs, M*u.S*N', tspan, (u.U, u.V))
-    SIntegrator = init(SProblem, alg.alg_params.SAlg, save_everystep=false)
+    SProblem = ODEProblem(alg.alg_params.S_rhs, M*u.S*N', tspan, (u.U, u.V))
+    SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs)
     step!(SIntegrator, dt, true)
     u.S .= SIntegrator.u
     
