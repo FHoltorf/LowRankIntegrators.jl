@@ -1,4 +1,4 @@
-using LowRankIntegrators, LinearAlgebra, Plots
+using LowRankIntegrators, DifferentialEquations, LinearAlgebra, Plots
 N = 100
 Ws = []
 for k in 1:2
@@ -21,14 +21,14 @@ Yf = Y(1.0)
 U, Σ, V = svd(Y0)
 
 r_range = [4,8,16]
-dt_range = [0.1,0.05,0.01,0.005]
+dt_range = [0.1,0.05,0.01,0.005,0.0001]
 tol = 0.05 # needed for rank adaptation
 S_kwargs, K_kwargs, L_kwargs = Dict(:dt => 0.001), Dict(:dt => 0.001), Dict(:dt => 0.001)
 alg = Euler()
-solvers = [PrimalLieTrotterProjectorSplitting(), StrangProjectorSplitting(), UnconventionalAlgorithm(), RankAdaptiveUnconventionalAlgorithm(tol)]
+solvers = [PrimalLieTrotterProjectorSplitting(), StrangProjectorSplitting(), UnconventionalAlgorithm()]#, RankAdaptiveUnconventionalAlgorithm(tol)]
 error = Dict()
 for r in r_range
-    X0 = LowRankApproximation(U[:,1:r], Matrix(Diagonal(Σ[1:r])), V[:, 1:r])
+    X0 = SVDLikeApproximation(U[:,1:r], Matrix(Diagonal(Σ[1:r])), V[:, 1:r])
     prob = MatrixDataProblem(Y, X0, (0.0, 1.0))
     for dt in dt_range
         for solver in solvers
@@ -41,11 +41,10 @@ end
 # visualization of data
 solver_names = Dict(solvers[1] => "Lie Trotter Projector Splitting", 
                     solvers[2] => "Strang Projector Splitting",
-                    solvers[3] => "Unconventional Algorithm",
-                    solvers[4] => "Adaptive Rank Unconventional Algorithm (tolerance $tol)")
+                    solvers[3] => "Unconventional Algorithm")
 error_comparison = plot(yscale = :log, xscale = :log, xlabel = "step size", ylabel = "error", legend = false)
 
-colors = Dict(solvers[1] => :blue, solvers[2] => :red, solvers[3] => :green, solvers[4] => :orange)
+colors = Dict(solvers[1] => :blue, solvers[2] => :red, solvers[3] => :green)
 marker_range = [:v, :hex, :o, :star, :cross, :^]
 markers = Dict(r_range[k] => marker_range[k] for k in 1:length(r_range))
 for r in r_range

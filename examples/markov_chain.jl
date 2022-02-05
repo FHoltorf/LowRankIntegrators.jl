@@ -4,14 +4,14 @@ using DifferentialEquations, LinearAlgebra, LowRankIntegrators, GLMakie
 # ∅ -> B -> ∅, [k3/(1+A), k4*B]
 
 # computing the propensities
-N = 100
-Nrxn = 4
+const N = 50
+const Nrxn = 4
 k1 = 30.0
 k2 = 1
 k3 = 10
 k4 = 1
 θ = 1
-ν = [(1,0), (-1,0), (0,1), (0,-1)]
+const ν = [(1,0), (-1,0), (0,1), (0,-1)]
 function coeff_cache(k1, k2, k3, k4, θ)
     ax = [zeros(N) for i in 1:4]
     ay = [zeros(N) for i in 1:4]
@@ -34,7 +34,7 @@ function coeff_cache(k1, k2, k3, k4, θ)
     return ax, ay, A_sum
 end
 
-ax, ay, A_sum = coeff_cache(k1, k2, k3, k4, θ)
+const ax, ay, A_sum = coeff_cache(k1, k2, k3, k4, θ)
 
 function γx(U,ax,ay,(α,β),y,k,j) 
     if y - β > N || y - β < 1
@@ -153,9 +153,11 @@ prob = ODEProblem(cme!, P_init, (0, 2.0))
 
 U, Σ, V = svd(P_init)
 rank_0 = findfirst(x -> x < 1e-6, Σ)
-X0 = LowRankApproximation(U[:,1:rank_0], Matrix(Diagonal(Σ[1:rank_0])), V[:,1:rank_0])
+X0 = SVDLikeApproximation(U[:,1:rank_0], Matrix(Diagonal(Σ[1:rank_0])), V[:,1:rank_0])
 
-Solver = StrangProjectorSplitting(S_rhs = S_backwards_step!, L_rhs = L_step!, K_rhs = K_step!)
+Solver = UnconventionalAlgorithm(S_rhs = S_step!, L_rhs = L_step!, K_rhs = K_step!,
+                                 S_alg = Euler(), L_alg = Euler(), K_alg = Euler(),
+                                 S_kwargs = Dict(:dt => 0.01), L_kwargs = Dict(:dt => 0.01), K_kwargs = Dict(:dt => 0.01)) #PrimalLieTrotterProjectorSplitting(S_rhs = S_backwards_step!, L_rhs = L_step!, K_rhs = K_step!)
 prob = MatrixDEProblem(nothing, X0, (0.0,2.0))
 @time integrator = LowRankIntegrators.solve(prob, Solver, 0.01)
 
