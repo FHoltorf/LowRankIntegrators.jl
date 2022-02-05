@@ -4,7 +4,10 @@ using LinearAlgebra, DifferentialEquations, UnPack
 import DifferentialEquations: step!, set_u!, init
 
 include("primitives.jl")
-export MatrixDEProblem, MatrixDataProblem, LowRankApproximation, DLRIntegrator, DLRSolution, solve
+export MatrixDEProblem, MatrixDataProblem, 
+       SVDLikeApproximation, LowRankApproximation, 
+       DLRIntegrator, DLRSolution, 
+       solve
 
 include("utils.jl")
 export full

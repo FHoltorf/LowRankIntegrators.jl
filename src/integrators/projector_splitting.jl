@@ -27,6 +27,7 @@ end
 struct PrimalLieTrotterProjectorSplitting{sType, lType, kType} <: AbstractDLRAlgorithm
     alg_params::LieTrotterProjectorSplitting_Params{sType, lType, kType}
 end
+
 function PrimalLieTrotterProjectorSplitting(;S_rhs = nothing, L_rhs = nothing, K_rhs = nothing, 
                                              S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
                                              S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5()) 
@@ -37,6 +38,7 @@ end
 struct DualLieTrotterProjectorSplitting{sType, lType, kType} <: AbstractDLRAlgorithm
     alg_params::LieTrotterProjectorSplitting_Params{sType, lType, kType}
 end
+
 function DualLieTrotterProjectorSplitting(;S_rhs = nothing, L_rhs = nothing, K_rhs = nothing,
                                            S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
                                            S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5())

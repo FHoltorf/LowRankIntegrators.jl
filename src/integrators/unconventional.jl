@@ -40,14 +40,13 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     # the fist integration step is used to allocate memory for frequently accessed arrays
     US = u.U*u.S
     tspan = (t0,t0+dt)
-    
     if isnothing(alg.alg_params.K_rhs)
         alg.alg_params.K_rhs = function (US, V, t)
                     return prob.f(US*V',t)*V
                 end 
     end
     KProblem = ODEProblem(alg.alg_params.K_rhs, US, tspan, u.V)
-    KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs)
+    KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
     QRK = qr!(US)
@@ -60,7 +59,7 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     end
     VS = u.V*u.S'
     LProblem = ODEProblem(alg.alg_params.L_rhs, VS, tspan, u.U)
-    LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs)
+    LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
     QRL = qr!(VS)
@@ -75,10 +74,9 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
                 end
     end
     SProblem = ODEProblem(alg.alg_params.S_rhs, M*u.S*N', tspan, (u.U, u.V))
-    SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs)
+    SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
     step!(SIntegrator, dt, true)
     u.S .= SIntegrator.u
-    
     return UnconventionalAlgorithm_Cache(US, VS, M, N, QRK, QRL, 
                                          SIntegrator, LIntegrator, KIntegrator,
                                          nothing, nothing, nothing, nothing)

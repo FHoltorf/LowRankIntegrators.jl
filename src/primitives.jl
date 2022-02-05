@@ -32,21 +32,28 @@ mutable struct MatrixDataProblem{uType, tType} <: AbstractDLRProblem
 end
 
 """
-    Convenient type carrying the factors of a low rank approximation to Matrix.
-    In the future this should be extended to low rank tensor factorizations (as with the whole
-    package).
+    The factors of an SVD like approximation are an orthogonal matrix U which represents the range of the matrix,
+    an orthogonal matrix V which represents the co-range of the matrix and a square core-matrix S which reprepresents
+    the map from the co-range to the range. To recover the full matrix one only needs to take the product U*S*V'.
 """
-mutable struct LowRankApproximation{uType} <: AbstractLowRankApproximation
-    U::Matrix{uType}
-    S::Matrix{uType}
-    V::Matrix{uType}
-end
+mutable struct SVDLikeApproximation{uType, sType, vType} <: AbstractLowRankApproximation
+    U::uType
+    S::sType
+    V::vType
+end 
 
+"""
+
+"""
+mutable struct LowRankApproximation{uType, zType} <: AbstractLowRankApproximation
+    U::uType
+    Z::zType
+end
 """
     Solution object that tracks the evolution of a low rank approximation
 """
-mutable struct DLRSolution{uType,tType} <: AbstractDLRSolution
-    Y::Vector{LowRankApproximation{uType}}
+mutable struct DLRSolution{solType, tType} <: AbstractDLRSolution
+    Y::Vector{solType}
     t::Vector{tType}
 end
 
@@ -54,10 +61,10 @@ end
     Integrator computing solution to a dynamic low rank approximation problem
 """
 mutable struct DLRIntegrator{uType, tType, aType, cType} <: AbstractDLRIntegrator
-    u::LowRankApproximation{uType}
+    u::uType
     t::tType
     dt::tType
-    sol::DLRSolution{uType, tType}
+    sol::DLRSolution{uType,tType}
     alg::aType
     cache::cType
     iter::Int

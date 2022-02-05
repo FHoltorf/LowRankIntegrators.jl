@@ -1,4 +1,5 @@
-full(LRA::LowRankApproximation) = LRA.U*LRA.S*LRA.V'
+full(LRA::SVDLikeApproximation) = LRA.U*LRA.S*LRA.V'
+full(LRA::LowRankApproximation) = LRA.U*LRA.Z'
 
 mutable struct MatrixDataIntegrator{yType, uType, lType, rType}
     Δy::yType
