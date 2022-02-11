@@ -1,16 +1,16 @@
 using Combinatorics
-import Base: +, -, *, size
+import Base: +, -, *, size, Matrix
 import LinearAlgebra: rank
 
 rank(LRA::SVDLikeApproximation) = size(LRA.S, 2)ß
-full(LRA::SVDLikeApproximation) = LRA.U*LRA.S*LRA.V'
+Matrix(LRA::SVDLikeApproximation) = LRA.U*LRA.S*LRA.V'
 size(LRA::SVDLikeApproximation) = (size(LRA.U,1), size(LRA.V,1))
 size(LRA::SVDLikeApproximation, ::Val{1}) = size(LRA.U,1)
 size(LRA::SVDLikeApproximation, ::Val{2}) = size(LRA.V,1)
 size(LRA::SVDLikeApproximation, i::Int) = size(LRA, Val(i))
 
 rank(LRA::LowRankApproximation) = size(LRA.U, 2)
-full(LRA::LowRankApproximation) = LRA.U*LRA.Z'
+Matrix(LRA::LowRankApproximation) = LRA.U*LRA.Z'
 size(LRA::LowRankApproximation) = (size(LRA.U,1), size(LRA.Z,1))
 size(LRA::LowRankApproximation, ::Val{1}) = size(LRA.U,1)
 size(LRA::LowRankApproximation, ::Val{2}) = size(LRA.Z,1)

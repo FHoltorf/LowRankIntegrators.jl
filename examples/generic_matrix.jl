@@ -33,7 +33,7 @@ for r in r_range
     for dt in dt_range
         for solver in solvers
             integrator = LowRankIntegrators.solve(prob, solver, dt)
-            error[(r,dt,solver)] = norm(full(integrator.sol.Y[end]) - Yf)
+            error[(r,dt,solver)] = norm(Matrix(integrator.sol.Y[end]) - Yf)
         end
     end
 end

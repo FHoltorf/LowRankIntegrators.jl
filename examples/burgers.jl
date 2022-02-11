@@ -67,11 +67,11 @@ function DO_eqns_non_allocating!(dU, dZ, U, Z, t)
     DO_eqns(dU, dZ, U, Z, (ρ,dρ), t)
 end
 
-r = 6
+r = 8
 U, S, V = svd(sol_by_time[1])
 X0 = LowRankApproximation(U[:,1:r], V[:,1:r]*Matrix(Diagonal(S[1:r])))
 solver = DOAlgorithm(DirectTimeMarching(), DO_rhs = DO_eqns_non_allocating!)
 lr_prob = MatrixDEProblem(nothing, X0, (0.0, 1.0))
-lr_sol = LowRankIntegrators.solve(lr_prob, solver, dt).sol
+@time lr_sol = LowRankIntegrators.solve(lr_prob, solver, dt).sol
 
-plot(save_times, [norm(full(lr_sol.Y[i]) - sol_by_time[i])^2/64^2 for i in 1:length(lr_sol.Y)])
+plot(save_times, [norm(Matrix(lr_sol.Y[i]) - sol_by_time[i])^2/64^2 for i in 1:length(lr_sol.Y)])
