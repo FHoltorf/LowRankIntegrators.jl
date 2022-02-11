@@ -1,6 +1,3 @@
-full(LRA::SVDLikeApproximation) = LRA.U*LRA.S*LRA.V'
-full(LRA::LowRankApproximation) = LRA.U*LRA.Z'
-
 mutable struct MatrixDataIntegrator{yType, uType, lType, rType}
     Δy::yType
     u::uType
@@ -22,12 +19,3 @@ function set_u!(integrator::MatrixDataIntegrator, unew)
     integrator.u .= unew
 end
 
-function update_sol!(integrator::AbstractDLRIntegrator, dt)
-    if integrator.iter <= length(integrator.sol.Y) - 1
-        integrator.sol.Y[integrator.iter + 1] = deepcopy(integrator.u)
-        integrator.sol.t[integrator.iter + 1] = integrator.t
-    else
-        push!(integrator.sol.Y, deepcopy(integrator.u))
-        push!(integrator.sol.t, integrator.t)
-    end
-end

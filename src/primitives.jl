@@ -79,6 +79,18 @@ function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt)
     while (prob.tspan[2]-integrator.t)/T > 1e-8 # robust to round-off-errors but need to find something actually rigorous? Maybe for loop with N = round(T/dt)? That won't work well with adaptive time stepping in the future.
         step!(integrator, alg, dt)
         update_sol!(integrator, dt)
+        println(integrator.t)
     end
     return integrator
+end
+
+
+function update_sol!(integrator::AbstractDLRIntegrator, dt)
+    if integrator.iter <= length(integrator.sol.Y) - 1
+        integrator.sol.Y[integrator.iter + 1] = deepcopy(integrator.u)
+        integrator.sol.t[integrator.iter + 1] = integrator.t
+    else
+        push!(integrator.sol.Y, deepcopy(integrator.u))
+        push!(integrator.sol.t, integrator.t)
+    end
 end
