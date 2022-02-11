@@ -2,7 +2,7 @@ using Combinatorics
 import Base: +, -, *, size, Matrix
 import LinearAlgebra: rank
 
-rank(LRA::SVDLikeApproximation) = size(LRA.S, 2)ß
+rank(LRA::SVDLikeApproximation) = size(LRA.S, 2)
 Matrix(LRA::SVDLikeApproximation) = LRA.U*LRA.S*LRA.V'
 size(LRA::SVDLikeApproximation) = (size(LRA.U,1), size(LRA.V,1))
 size(LRA::SVDLikeApproximation, ::Val{1}) = size(LRA.U,1)
