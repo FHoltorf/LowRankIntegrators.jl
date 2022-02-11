@@ -5,12 +5,13 @@ import DifferentialEquations: step!, set_u!, init
 
 include("primitives.jl")
 export MatrixDEProblem, MatrixDataProblem, 
-       SVDLikeApproximation, LowRankApproximation, 
        DLRIntegrator, DLRSolution, 
        solve
 
-include("utils.jl")
-export full
+include("low_rank_algebra.jl")
+export full,
+       SVDLikeApproximation, LowRankApproximation, 
+       elprod, elpow
 
 include("integrators.jl")
 export PrimalLieTrotterProjectorSplitting,
