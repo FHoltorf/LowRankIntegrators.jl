@@ -2,7 +2,6 @@
 abstract type AbstractDLRProblem end
 abstract type AbstractDLRSolution end
 abstract type AbstractDLRIntegrator end
-abstract type AbstractLowRankApproximation end
 abstract type AbstractDLRAlgorithm end
 abstract type AbstractDLRAlgorithm_Cache end
 
@@ -31,24 +30,6 @@ mutable struct MatrixDataProblem{uType, tType} <: AbstractDLRProblem
     tspan::Tuple{tType, tType}
 end
 
-"""
-    The factors of an SVD like approximation are an orthogonal matrix U which represents the range of the matrix,
-    an orthogonal matrix V which represents the co-range of the matrix and a square core-matrix S which reprepresents
-    the map from the co-range to the range. To recover the full matrix one only needs to take the product U*S*V'.
-"""
-mutable struct SVDLikeApproximation{uType, sType, vType} <: AbstractLowRankApproximation
-    U::uType
-    S::sType
-    V::vType
-end 
-
-"""
-
-"""
-mutable struct LowRankApproximation{uType, zType} <: AbstractLowRankApproximation
-    U::uType
-    Z::zType
-end
 """
     Solution object that tracks the evolution of a low rank approximation
 """
@@ -83,7 +64,6 @@ function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt)
     end
     return integrator
 end
-
 
 function update_sol!(integrator::AbstractDLRIntegrator, dt)
     if integrator.iter <= length(integrator.sol.Y) - 1
