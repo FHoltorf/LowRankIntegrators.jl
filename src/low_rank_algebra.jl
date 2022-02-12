@@ -113,8 +113,33 @@ end
 -(B::AbstractMatrix, A::TwoFactorApproximation) = A - Matrix(B)
 
 # elementwise product
+function elprod(A::SVDLikeApproximation, B::SVDLikeApproximation) 
+    @assert size(A) == size(B) "elementwise product is only defined between matrices of equal dimension"
+    rA, rB = rank(A), rank(B)
+    r_new = rA*rB
+    U = ones(eltype(A.U), size(A,1), r_new)
+    V = ones(eltype(A.V), size(A,2), r_new)
+    S = ones(eltype(A.S), r_new, r_new)
+    AUcols = [@view A.U[:,i] for i in 1:rA]
+    AVcols = [@view A.V[:,i] for i in 1:rA]
+    BUcols = [@view B.U[:,i] for i in 1:rB]
+    BVcols = [@view B.V[:,i] for i in 1:rB]
+    k = 0
+    for r1 in 1:rA, r2 in 1:rB
+        k += 1
+        U[:,k] = AUcols[r1] .* BUcols[r2]
+        V[:,k] = AVcols[r1] .* BVcols[r2]
+        l = 0
+        for k1 in 1:rA, k2 in 1:rB
+            l += 1
+            S[k,l] = A.S[r1,k1]*B.S[r2,k2]
+        end
+    end
+    return SVDLikeApproximation(U,S,V)
+end
+
 function elprod(A::TwoFactorApproximation, B::TwoFactorApproximation) 
-    @assert size(A) == size(B) "elementwise product only defined between matrices of equal dimension"
+    @assert size(A) == size(B) "elementwise product is only defined between matrices of equal dimension"
     rA, rB = rank(A), rank(B)
     r_new = rA*rB
     U = ones(eltype(A.U), size(A,1), r_new)
