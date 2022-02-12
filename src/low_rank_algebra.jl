@@ -190,7 +190,7 @@ function add_scalar(LRA::SVDLikeApproximation, α::Number)
     return LRA + SVDLikeApproximation(ones(eltype(α), size(LRA, 1)), [α], ones(eltype(α), size(LRA,2)))
 end
 
-function add_scalar(LRA::LowRankApproximation, α::Number)
+function add_scalar(LRA::TwoFactorApproximation, α::Number)
     return LRA + LowRankApproximation(ones(eltype(α), size(LRA, 1)), α*ones(eltype(α), size(LRA,2)))
 end
 
