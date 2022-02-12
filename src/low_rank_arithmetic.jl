@@ -225,24 +225,48 @@ function add_to_cols(LRA::TwoFactorApproximation, v::AbstractVector)
     return LRA + TwoFactorApproximation(v, ones(eltype(v), size(LRA, 2)))
 end
 
+function multiply_cols(LRA::TwoFactorApproximation, v::AbstractVector)
+    return elprod(LRA, TwoFactorApproximation(v, ones(eltype(v), size(LRA, 2))))
+end
+
 function add_to_cols(LRA::SVDLikeApproximation, v::AbstractVector)
     return LRA + SVDLikeApproximation(v, ones(eltype(v), 1, 1), ones(eltype(v), size(LRA, 2)))
+end
+
+function multiply_cols(LRA::SVDLikeApproximation, v::AbstractVector)
+    return elprod(LRA, SVDLikeApproximation(v, ones(eltype(v), 1, 1), ones(eltype(v), size(LRA, 2))))
 end
 
 function add_to_cols(A, v::AbstractVector)
     return A .+ v
 end
 
+function multiply_cols(A, v::AbstractVector)
+    return p .* A
+end
+
 function add_to_rows(LRA::TwoFactorApproximation, v::AbstractVector)
     return LRA + TwoFactorApproximation(ones(eltype(v), size(LRA, 1)), v)
+end
+
+function multiply_rows(LRA::TwoFactorApproximation, v::AbstractVector)
+    return elprod(LRA, TwoFactorApproximation(ones(eltype(v), size(LRA, 1)), v))
 end
 
 function add_to_rows(LRA::SVDLikeApproximation, v::AbstractVector)
     return LRA + SVDLikeApproximation(ones(eltype(v), size(LRA, 1)), ones(eltype(v), 1), v)
 end
 
+function multiply_rows(LRA::SVDLikeApproximation, v::AbstractVector)
+    return elprod(LRA, SVDLikeApproximation(ones(eltype(v), size(LRA, 1)), ones(eltype(v), 1), v))
+end
+
 function add_to_rows(A, v::AbstractVector)
     return A .+ v'
+end
+
+function multiply_rows(A, v::AbstractVector)
+    return A .* v'
 end
 
 function add_scalar(LRA::SVDLikeApproximation, α::Number)

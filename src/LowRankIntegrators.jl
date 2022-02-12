@@ -6,7 +6,8 @@ import DifferentialEquations: step!, set_u!, init
 include("low_rank_arithmetic.jl")
 export SVDLikeApproximation, TwoFactorApproximation, 
        Matrix, rank, size, *, +, -,
-       elprod, elpow, add_to_cols, add_to_rows, add_scalar
+       elprod, elpow, add_to_cols, add_to_rows, add_scalar,
+       multiply_cols, multiply_rows
 
 include("utils.jl")
 export orthonormalize!, GradientDescent, QR, SVD
