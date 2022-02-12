@@ -89,7 +89,7 @@ end
 
 ## Addition
 # just for convenience:
-function Diagonal(A::AbstractMatrix, B::AbstractMatrix) 
+function blockdiagonal(A::AbstractMatrix, B::AbstractMatrix) 
     n1,m1 = size(A)
     n2,m2 = size(B)
     C = zeros(eltype(A), n1+n2,m1+m2)
@@ -98,7 +98,7 @@ function Diagonal(A::AbstractMatrix, B::AbstractMatrix)
     return C
 end
 
-+(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(hcat(A.U, B.U), Diagonal(A.S, B.S),hcat(A.V, B.V))
++(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(hcat(A.U, B.U), blockdiagonal(A.S, B.S),hcat(A.V, B.V))
 +(A::AbstractMatrix, B::SVDLikeApproximation) = A + Matrix(B)
 +(A::SVDLikeApproximation, B::AbstractMatrix) = Matrix(A) + B
 -(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(hcat(A.U, B.U), Diagonal(A.S, -B.S),hcat(A.V, B.V))
@@ -162,6 +162,38 @@ function elprod(A,B)
 end
 
 # elementwise power
+function elpow(A::SVDLikeApproximation, d::Int)
+    @assert d >= 1 "elementwise power operation 'elpow' only defined for positive powers"
+    r = rank(A)
+    r_new = binomial(r+d-1, d)
+
+    # the following sequence is not ideal but cheap under the premise of low rank, need to be improved though
+    U, S, V = svd(A.S)
+    A.U .= A.U*U
+    A.V .= A.V*V 
+    A.S .= Matrix(Diagonal(S))
+
+    Ucols = [@view A.U[:,i] for i in 1:r]
+    Vcols = [@view A.V[:,i] for i in 1:r]
+    U = ones(eltype(A.U), size(A,1), r_new)
+    V = ones(eltype(A.V), size(A,2), r_new)
+    S = zeros(eltype(A.S), r_new, r_new)
+    k = 0 
+    multi_exps = multiexponents(r,d) 
+    for exps in multi_exps
+        k += 1
+        S[k,k] += multinomial(exps...)
+        for j in 1:r
+            if exps[j] != 0
+                U[:, k] .*= Ucols[j].^exps[j]
+                V[:, k] .*= Vcols[j].^exps[j]
+                S[k,k] *= A.S[j,j]^exps[j]
+            end
+        end
+    end
+    return SVDLikeApproximation(U,S,V)
+end
+
 function elpow(A::TwoFactorApproximation, d::Int)
     @assert d >= 1 "elementwise power operation 'elpow' only defined for positive powers"
     r = rank(A)
@@ -175,8 +207,10 @@ function elpow(A::TwoFactorApproximation, d::Int)
         k += 1
         Z[:, k] .*= multinomial(exps...) 
         for j in 1:r
-            U[:, k] .*= Ucols[j].^exps[j]
-            Z[:, k] .*= Zcols[j].^exps[j]
+            if exps[j] > 0
+                U[:, k] .*= Ucols[j].^exps[j]
+                Z[:, k] .*= Zcols[j].^exps[j]
+            end
         end
     end
     return TwoFactorApproximation(U, Z)
