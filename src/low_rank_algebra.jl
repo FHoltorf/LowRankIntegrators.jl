@@ -59,8 +59,8 @@ getindex(LRA::TwoFactorApproximation, i::Int, j::Int) = sum(LRA.U[i,k]*LRA.Z[j,k
 # it would preserve orthonormality of range/co-range factors but make core rectangular and increase the storage cost unnecessarily.
 
 ## Multiplication
-*(A::AbstractMatrix, B::SVDLikeApproximation) = SVDLikeApproximation(A*A.U, B.S, B.V)
-*(A::SVDLikeApproximation, B::AbstractMatrix) = SVDLikeApproximation(A*A.U, B.S, B.V)
+*(A::AbstractMatrix, B::SVDLikeApproximation) = SVDLikeApproximation(A*B.U, B.S, B.V)
+*(A::SVDLikeApproximation, B::AbstractMatrix) = SVDLikeApproximation(A.U, A.S, B'*A.V)
 function *(A::SVDLikeApproximation, B::SVDLikeApproximation)
     if rank(A) ≤ rank(B)
         return SVDLikeApproximation(A.U, A.S, B.V*B.S'*(B.U'*A.V))
@@ -93,8 +93,8 @@ function blockdiagonal(A::AbstractMatrix, B::AbstractMatrix)
     n1,m1 = size(A)
     n2,m2 = size(B)
     C = zeros(eltype(A), n1+n2,m1+m2)
-    C[1:n1, 1:m2] .= A
-    C[n1+1:end, m2+1:end] .= B
+    C[1:n1, 1:m1] .= A
+    C[n1+1:end, m1+1:end] .= B
     return C
 end
 
