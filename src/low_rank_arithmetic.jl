@@ -105,7 +105,7 @@ end
 +(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(hcat(A.U, B.U), blockdiagonal(A.S, B.S),hcat(A.V, B.V))
 +(A::AbstractMatrix, B::SVDLikeApproximation) = A + Matrix(B)
 +(A::SVDLikeApproximation, B::AbstractMatrix) = Matrix(A) + B
--(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(hcat(A.U, B.U), Diagonal(A.S, -B.S),hcat(A.V, B.V))
+-(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(hcat(A.U, B.U), blockdiagonal(A.S, -B.S),hcat(A.V, B.V))
 -(A::AbstractMatrix, B::SVDLikeApproximation) = A - Matrix(B)
 -(A::SVDLikeApproximation, B::AbstractMatrix) = Matrix(A) - B
 
