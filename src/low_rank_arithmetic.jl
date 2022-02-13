@@ -1,6 +1,6 @@
 using Combinatorics
 import Base: +, -, *, size, Matrix, getindex
-import LinearAlgebra: rank
+import LinearAlgebra: rank, adjoint
 
 abstract type AbstractLowRankApproximation end
 
@@ -35,7 +35,7 @@ end
 """
 mutable struct TwoFactorApproximation{uType, zType} <: AbstractLowRankApproximation
     U::uType
-    Z::zType
+    Z::zType                              
 end
 
 rank(LRA::SVDLikeApproximation) = size(LRA.S,1)
@@ -53,6 +53,10 @@ size(LRA::TwoFactorApproximation, ::Val{2}) = size(LRA.Z,1)
 size(LRA::TwoFactorApproximation, i::Int) = size(LRA, Val(i))
 Matrix(LRA::TwoFactorApproximation) = LRA.U*LRA.Z'
 getindex(LRA::TwoFactorApproximation, i::Int, j::Int) = sum(LRA.U[i,k]*LRA.Z[j,k] for k in 1:rank(LRA)) # good enough for now
+
+# simple support of adjoints, probably not ideal though
+adjoint(LRA::TwoFactorApproximation) = TwoFactorApproximation(conj(LRA.Z),conj(LRA.U)) 
+adjoint(LRA::SVDLikeApproximation) = TwoFactorApproximation(conj(LRA.V),LRA.S',conj(LRA.U)) 
 
 # Is the following alternative better?
 # *(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(A.U, A.S*(A.V'*B.U)*B.S, B.V)
@@ -92,7 +96,7 @@ end
 function blockdiagonal(A::AbstractMatrix, B::AbstractMatrix) 
     n1,m1 = size(A)
     n2,m2 = size(B)
-    C = zeros(eltype(A), n1+n2,m1+m2)
+    C = zeros(eltype(A), n1+n2, m1+m2)
     C[1:n1, 1:m1] .= A
     C[n1+1:end, m1+1:end] .= B
     return C
@@ -110,7 +114,7 @@ end
 +(A::TwoFactorApproximation, B::AbstractMatrix) = Matrix(A) + B
 -(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(hcat(A.U, B.U), hcat(A.Z, -B.Z))
 -(A::TwoFactorApproximation, B::AbstractMatrix) = Matrix(A) - B
--(B::AbstractMatrix, A::TwoFactorApproximation) = A - Matrix(B)
+-(A::AbstractMatrix, B::TwoFactorApproximation) = A - Matrix(B)
 
 # elementwise product
 function elprod(A::SVDLikeApproximation, B::SVDLikeApproximation) 
