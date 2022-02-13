@@ -68,11 +68,13 @@ function alg_cache(prob::MatrixDEProblem, alg::PrimalLieTrotterProjectorSplittin
     tspan = (t0,t0+dt)
     
     if isnothing(alg.alg_params.K_rhs)
-        alg.alg_params.K_rhs = function (US, V, t)
-                    return prob.f(US*V',t)*V
-                end 
+        K_rhs = function (US, V, t)
+                    return Matrix(prob.f(TwoFactorApproximation(US,V),t)*V)
+                end
+    else
+        K_rhs = alg.alg_params.K_rhs
     end
-    KProblem = ODEProblem(alg.alg_params.K_rhs, US, tspan, u.V)
+    KProblem = ODEProblem(K_rhs, US, tspan, u.V)
     KIntegrator = init(KProblem, alg.alg_params.K_alg, save_everystep=false, alg.alg_params.K_kwargs...)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
@@ -80,21 +82,25 @@ function alg_cache(prob::MatrixDEProblem, alg::PrimalLieTrotterProjectorSplittin
     u.U .= Matrix(QRK.Q) 
 
     if isnothing(alg.alg_params.S_rhs)
-        alg.alg_params.S_rhs = function (S, p, t)
-                    return -p[1]'*prob.f(p[1]*S*p[2]',t)*p[2]
+        S_rhs = function (S, (U,V), t)
+                    return Matrix(-U'*prob.f(SVDLikeApproximation(U,S,V),t)*V)
                 end
-    end    
-    SProblem = ODEProblem(alg.alg_params.S_rhs, QRK.R, tspan, (u.U, u.V))
+    else
+        S_rhs = alg.alg_params.S_rhs
+    end
+    SProblem = ODEProblem(S_rhs, QRK.R, tspan, (u.U, u.V))
     SIntegrator = init(SProblem, alg.alg_params.S_alg, save_everystep=false, alg.alg_params.S_kwargs...)
     step!(SIntegrator, dt, true)
     VS = u.V*SIntegrator.u'
 
     if isnothing(alg.alg_params.L_rhs)
-        alg.alg_params.L_rhs = function (VS, U, t)
-                    return prob.f(U*VS',t)'*U
+        L_rhs = function (VS, U, t)
+                    return Matrix(prob.f(TwoFactorApproximation(U,VS),t)'*U)
                 end
+    else
+        L_rhs = alg.alg_params.L_rhs
     end
-    LProblem = ODEProblem(alg.alg_params.L_rhs, VS, tspan, u.U)
+    LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
     LIntegrator = init(LProblem, alg.alg_params.L_alg, save_everystep=false, alg.alg_params.L_kwargs...)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
@@ -112,11 +118,13 @@ function alg_cache(prob::MatrixDEProblem, alg::DualLieTrotterProjectorSplitting,
     tspan = (t0,t0+dt)
     
     if isnothing(alg.alg_params.L_rhs)
-        alg.alg_params.L_rhs = function (VS, U, t)
-                    return prob.f(U*VS',t)'*U
+        L_rhs = function (VS, U, t)
+                    return Matrix(prob.f(TwoFactorApproximation(U,VS),t)'*U)
                 end
+    else
+        L_rhs = alg.alg_params.L_rhs
     end
-    LProblem = ODEProblem(alg.alg_params.L_rhs, VS, tspan, u.U)
+    LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
     LIntegrator = init(LProblem, alg.alg_params.L_alg, save_everystep=false, alg.alg_params.L_kwargs...)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
@@ -124,21 +132,25 @@ function alg_cache(prob::MatrixDEProblem, alg::DualLieTrotterProjectorSplitting,
     u.V .= Matrix(QRL.Q)
     
     if isnothing(alg.alg_params.S_rhs)
-        alg.alg_params.S_rhs = function (S, (U,V), t)
-                    return -U'*prob.f(U*S*V',t)*V
+        S_rhs = function (S, (U,V), t)
+                    return Matrix(-U'*prob.f(SVDLikeApproximation(U,S,V),t)*V)
                 end 
+    else
+        S_rhs = alg.alg_params.S_rhs
     end
-    SProblem = ODEProblem(alg.alg_params.S_rhs, Matrix(QRL.R'), tspan, (u.U, u.V))
+    SProblem = ODEProblem(S_rhs, Matrix(QRL.R'), tspan, (u.U, u.V))
     SIntegrator = init(SProblem, alg.alg_params.S_alg, save_everystep=false, alg.alg_params.S_kwargs...)
     step!(SIntegrator, dt, true)
     US = u.U*SIntegrator.u
 
     if isnothing(alg.alg_params.K_rhs)
-        alg.alg_params.K_rhs = function (US, V, t)
-                    return prob.f(US*V',t)*V
+        K_rhs = function (US, V, t)
+                    return Matrix(prob.f(TwoFactorApproximation(US,V),t)*V)
                 end
+    else
+        K_rhs = alg.alg_params.K_rhs
     end
-    KProblem = ODEProblem(alg.alg_params.K_rhs, US, tspan, u.V)
+    KProblem = ODEProblem(K_rhs, US, tspan, u.V)
     KIntegrator = init(KProblem, alg.alg_params.K_alg, save_everystep=false, alg.alg_params.K_kwargs...)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
