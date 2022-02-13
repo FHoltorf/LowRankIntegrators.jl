@@ -42,12 +42,27 @@ function orthonormalize!(LRA::TwoFactorApproximation, ::QR)
     LRA.Z .= LRA.Z*R'
 end
 
+function orthonormalize!(LRA::SVDLikeApproximation, ::QR)
+    Q, RU = qr(LRA.U)
+    P, RV = qr(LRA.V)
+    LRA.U .= Matrix(Q) 
+    LRA.V .= Matrix(P) 
+    LRA.S .= RU*S*RV'
+end
+
 function orthonormalize!(LRA::TwoFactorApproximation, ::SVD)
     U, S, V = svd(LRA.U)
     LRA.U .= U 
-    LRA.Z .= LRA.Z*V*S
+    LRA.Z .= LRA.Z*V*Diagonal(S)
 end
 
+function orthonormalize!(LRA::SVDLikeApproximation, ::SVD)
+    U, SU, VU = svd(LRA.U)
+    V, SV, VV = svd(LRA.V)
+    LRA.U .= U
+    LRA.S .= Diagonal(SU)*VU*LRA.S*VV'*Diagonal(SV)
+    LRA.V .= V
+end
 # ToDo: add Gram-Schmidt orthonormalization
 
 # gradient descent update for truncated svd
