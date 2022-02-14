@@ -117,7 +117,7 @@ end
 -(A::AbstractMatrix, B::TwoFactorApproximation) = A - Matrix(B)
 
 # elementwise product
-function elprod(A::SVDLikeApproximation, B::SVDLikeApproximation) 
+function hadamard(A::SVDLikeApproximation, B::SVDLikeApproximation) 
     @assert size(A) == size(B) "elementwise product is only defined between matrices of equal dimension"
     rA, rB = rank(A), rank(B)
     r_new = rA*rB
@@ -142,7 +142,7 @@ function elprod(A::SVDLikeApproximation, B::SVDLikeApproximation)
     return SVDLikeApproximation(U,S,V)
 end
 
-function elprod(A::TwoFactorApproximation, B::TwoFactorApproximation) 
+function hadamard(A::TwoFactorApproximation, B::TwoFactorApproximation) 
     @assert size(A) == size(B) "elementwise product is only defined between matrices of equal dimension"
     rA, rB = rank(A), rank(B)
     r_new = rA*rB
@@ -161,7 +161,7 @@ function elprod(A::TwoFactorApproximation, B::TwoFactorApproximation)
     return TwoFactorApproximation(U,Z)
 end
 # catch all case
-function elprod(A,B)
+function hadamard(A,B)
     return A .* B
 end
 
@@ -230,7 +230,7 @@ function add_to_cols(LRA::TwoFactorApproximation, v::AbstractVector)
 end
 
 function multiply_cols(LRA::TwoFactorApproximation, v::AbstractVector)
-    return elprod(LRA, TwoFactorApproximation(v, ones(eltype(v), size(LRA, 2))))
+    return hadamard(LRA, TwoFactorApproximation(v, ones(eltype(v), size(LRA, 2))))
 end
 
 function add_to_cols(LRA::SVDLikeApproximation, v::AbstractVector)
@@ -238,7 +238,7 @@ function add_to_cols(LRA::SVDLikeApproximation, v::AbstractVector)
 end
 
 function multiply_cols(LRA::SVDLikeApproximation, v::AbstractVector)
-    return elprod(LRA, SVDLikeApproximation(v, ones(eltype(v), 1, 1), ones(eltype(v), size(LRA, 2))))
+    return hadamard(LRA, SVDLikeApproximation(v, ones(eltype(v), 1, 1), ones(eltype(v), size(LRA, 2))))
 end
 
 function add_to_cols(A, v::AbstractVector)
@@ -254,7 +254,7 @@ function add_to_rows(LRA::TwoFactorApproximation, v::AbstractVector)
 end
 
 function multiply_rows(LRA::TwoFactorApproximation, v::AbstractVector)
-    return elprod(LRA, TwoFactorApproximation(ones(eltype(v), size(LRA, 1)), v))
+    return hadamard(LRA, TwoFactorApproximation(ones(eltype(v), size(LRA, 1)), v))
 end
 
 function add_to_rows(LRA::SVDLikeApproximation, v::AbstractVector)
@@ -262,7 +262,7 @@ function add_to_rows(LRA::SVDLikeApproximation, v::AbstractVector)
 end
 
 function multiply_rows(LRA::SVDLikeApproximation, v::AbstractVector)
-    return elprod(LRA, SVDLikeApproximation(ones(eltype(v), size(LRA, 1)), ones(eltype(v), 1, 1), v))
+    return hadamard(LRA, SVDLikeApproximation(ones(eltype(v), size(LRA, 1)), ones(eltype(v), 1, 1), v))
 end
 
 function add_to_rows(A, v::AbstractVector)
