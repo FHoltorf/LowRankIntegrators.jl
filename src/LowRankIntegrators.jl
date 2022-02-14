@@ -22,6 +22,7 @@ export PrimalLieTrotterProjectorSplitting,
        DualLieTrotterProjectorSplitting, 
        StrangProjectorSplitting, 
        UnconventionalAlgorithm,
+       RankAdaptiveUnconventionalAlgorithm,
        DOAlgorithm, DirectTimeMarching,
        RankAdaptiveUnconventionalAlgorithm,
        step!, init 
