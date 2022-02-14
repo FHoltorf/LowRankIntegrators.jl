@@ -258,11 +258,11 @@ function multiply_rows(LRA::TwoFactorApproximation, v::AbstractVector)
 end
 
 function add_to_rows(LRA::SVDLikeApproximation, v::AbstractVector)
-    return LRA + SVDLikeApproximation(ones(eltype(v), size(LRA, 1)), ones(eltype(v), 1), v)
+    return LRA + SVDLikeApproximation(ones(eltype(v), size(LRA, 1)), ones(eltype(v), 1, 1), v)
 end
 
 function multiply_rows(LRA::SVDLikeApproximation, v::AbstractVector)
-    return elprod(LRA, SVDLikeApproximation(ones(eltype(v), size(LRA, 1)), ones(eltype(v), 1), v))
+    return elprod(LRA, SVDLikeApproximation(ones(eltype(v), size(LRA, 1)), ones(eltype(v), 1, 1), v))
 end
 
 function add_to_rows(A, v::AbstractVector)
