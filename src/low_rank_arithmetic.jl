@@ -20,6 +20,12 @@ mutable struct SVDLikeApproximation{uType, sType, vType} <: AbstractLowRankAppro
     V::vType
 end 
 
+function truncated_svd(A::AbstractMatrix, r::Int)
+    @assert r <= minimum(size(A)) "truncated rank can not exceed the maximum rank of A"
+    U, S, V = svd(A)
+    return SVDLikeApproximation(U[:,1:r], Matrix(Diagonal(S[1:r])), V[:,1:r])
+end
+
 """
     X = U*Z'
 
