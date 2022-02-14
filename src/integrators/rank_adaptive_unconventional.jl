@@ -115,7 +115,7 @@ function init(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorithm, d
     # initialize cache
     cache = alg_cache(prob, alg, u, t0)
     
-    return DLRIntegrator(u, t0+dt, dt, sol, alg, cache, 0)   
+    return DLRIntegrator(u, t0, dt, sol, alg, cache, 0)   
 end
 
 function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorithm, u, t)
