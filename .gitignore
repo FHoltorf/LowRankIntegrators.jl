@@ -4,5 +4,5 @@
 Manifest.toml
 /docs/build/
 readme_batches.md
-examples/reaction_diffusion.jl
 wip/
+examples/.ipynb_checkpoints
