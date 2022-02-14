@@ -62,7 +62,7 @@ function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt)
         update_sol!(integrator, dt)
         println(integrator.t)
     end
-    return integrator
+    return integrator.sol
 end
 
 function update_sol!(integrator::AbstractDLRIntegrator, dt)
