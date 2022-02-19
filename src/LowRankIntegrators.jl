@@ -11,7 +11,7 @@ export SVDLikeApproximation, TwoFactorApproximation,
        multiply_cols, multiply_rows
 
 include("utils.jl")
-export orthonormalize!, GradientDescent, QR, SVD
+export orthonormalize!, GradientDescent, QR, SVD, SecondMomentMatching, normal_component
 
 include("primitives.jl")
 export MatrixDEProblem, MatrixDataProblem, 
