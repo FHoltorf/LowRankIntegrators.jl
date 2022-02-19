@@ -110,9 +110,9 @@ end
 
 ## Addition
 # just for convenience:
-function blockdiagonal(A::AbstractMatrix, B::AbstractMatrix) 
-    n1,m1 = size(A)
-    n2,m2 = size(B)
+function blockdiagonal(A::T1, B::T2) where {T1, T2 <: Union{AbstractMatrix, AbstractVector}}
+    n1,m1 = size(A,1), size(A,2)
+    n2,m2 = size(B,1), size(B,2)
     C = zeros(eltype(A), n1+n2, m1+m2)
     C[1:n1, 1:m1] .= A
     C[n1+1:end, m1+1:end] .= B
@@ -299,7 +299,7 @@ function add_scalar(LRA::SVDLikeApproximation, α::Number)
 end
 
 function add_scalar(LRA::TwoFactorApproximation, α::Number)
-    return LRA + LowRankApproximation(ones(eltype(α), size(LRA, 1)), α*ones(eltype(α), size(LRA,2)))
+    return LRA + TwoFactorApproximation(ones(eltype(α), size(LRA, 1)), α*ones(eltype(α), size(LRA,2)))
 end
 
 function add_scalar(A, α::Number)
