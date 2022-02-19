@@ -1,5 +1,5 @@
 using Combinatorics
-import Base: +, -, *, size, Matrix, getindex
+import Base: +, -, *, size, Matrix, getindex, hcat, vcat
 import LinearAlgebra: rank, adjoint
 
 abstract type AbstractLowRankApproximation end
@@ -66,6 +66,10 @@ getindex(LRA::TwoFactorApproximation, i::AbstractVector, j::AbstractVector) = Tw
 getindex(LRA::TwoFactorApproximation, i::AbstractVector, ::Colon) = TwoFactorApproximation(LRA.U[i,:], LRA.Z)
 getindex(LRA::TwoFactorApproximation, ::Colon, j::AbstractVector) = TwoFactorApproximation(LRA.U, LRA.Z[j,:])
 
+hcat(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(hcat(A.U, B.U), blockdiagonal(A.Z, B.Z))
+vcat(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(blockdiagonal(A.U, B.U), hcat(A.Z, B.Z))
+# [UZ' AB'] = [U A] [Z' 0
+#                    0 B'] = [UZ' ]
 # simple support of adjoints, probably not ideal though
 adjoint(LRA::TwoFactorApproximation) = TwoFactorApproximation(conj(LRA.Z),conj(LRA.U)) 
 adjoint(LRA::SVDLikeApproximation) = TwoFactorApproximation(conj(LRA.V),LRA.S',conj(LRA.U)) 
