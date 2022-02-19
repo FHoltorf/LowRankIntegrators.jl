@@ -51,6 +51,9 @@ size(LRA::SVDLikeApproximation, ::Val{2}) = size(LRA.V,1)
 size(LRA::SVDLikeApproximation, i::Int) = size(LRA, Val(i))
 Matrix(LRA::SVDLikeApproximation) = LRA.U*LRA.S*LRA.V'
 getindex(LRA::SVDLikeApproximation, i::Int, j::Int) = sum(LRA.U[i,k]*sum(LRA.S[k,s]*LRA.V[j,s] for s in 1:rank(LRA)) for k in 1:rank(LRA)) # good enough for now
+getindex(LRA::SVDLikeApproximation, i::AbstractVector, j::AbstractVector) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V[j,:])
+getindex(LRA::SVDLikeApproximation, i::AbstractVector, ::Colon) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V)
+getindex(LRA::SVDLikeApproximation, ::Colon, j::AbstractVector) = SVDLikeApproximation(LRA.U, LRA.S, LRA.V[j,:])
 
 rank(LRA::TwoFactorApproximation) = size(LRA.U, 2)
 size(LRA::TwoFactorApproximation) = (size(LRA.U,1), size(LRA.Z,1))
@@ -59,6 +62,9 @@ size(LRA::TwoFactorApproximation, ::Val{2}) = size(LRA.Z,1)
 size(LRA::TwoFactorApproximation, i::Int) = size(LRA, Val(i))
 Matrix(LRA::TwoFactorApproximation) = LRA.U*LRA.Z'
 getindex(LRA::TwoFactorApproximation, i::Int, j::Int) = sum(LRA.U[i,k]*LRA.Z[j,k] for k in 1:rank(LRA)) # good enough for now
+getindex(LRA::TwoFactorApproximation, i::AbstractVector, j::AbstractVector) = TwoFactorApproximation(LRA.U[i,:], LRA.Z[j,:])
+getindex(LRA::TwoFactorApproximation, i::AbstractVector, ::Colon) = TwoFactorApproximation(LRA.U[i,:], LRA.Z)
+getindex(LRA::TwoFactorApproximation, ::Colon, j::AbstractVector) = TwoFactorApproximation(LRA.U, LRA.Z[j,:])
 
 # simple support of adjoints, probably not ideal though
 adjoint(LRA::TwoFactorApproximation) = TwoFactorApproximation(conj(LRA.Z),conj(LRA.U)) 
@@ -226,7 +232,7 @@ function elpow(A::TwoFactorApproximation, d::Int)
     return TwoFactorApproximation(U, Z)
 end
 
-function elpower(A,d::Int)
+function elpow(A,d::Int)
     return A.^d
 end
 
@@ -271,12 +277,16 @@ function multiply_rows(LRA::SVDLikeApproximation, v::AbstractVector)
     return hadamard(LRA, SVDLikeApproximation(ones(eltype(v), size(LRA, 1)), ones(eltype(v), 1, 1), v))
 end
 
-function add_to_rows(A, v::AbstractVector)
+function add_to_rows(A, v)
     return A .+ v'
 end
 
-function multiply_rows(A, v::AbstractVector)
+function multiply_rows(A, v)
     return A .* v'
+end
+
+function multiply_rows(A, v::Number)
+    return v*A 
 end
 
 function add_scalar(LRA::SVDLikeApproximation, α::Number)
