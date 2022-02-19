@@ -12,20 +12,23 @@ struct QR end
 
 struct SVD end
 
+struct SecondMomentMatching end
+
 function orthonormalize!(LRA::TwoFactorApproximation, alg::GradientDescent)
     @unpack μ, atol, rtol, maxiter = alg 
-    K = A.U'*A.U
-    r = size(K)
+    K = LRA.U'*LRA.U
+    r = rank(LRA)
     A = Matrix{eltype(K)}(I, r, r)
     Ainv = Matrix{eltype(K)}(I, r, r)
     dA = similar(A)
     iter = 0
-    ϵ = norm(A'*K*A - I)
+    ϵ = norm(A'*K*A - I)^2
     while ϵ > atol && ϵ > r*rtol && iter < maxiter
         dA .= - K*A*(A'*K*A - I)
         A .+= μ*dA
         Ainv .-= μ*Ainv*dA*Ainv
         iter += 1
+        ϵ = norm(A'*K*A - I)^2
     end
     if iter == maxiter
         @warn "Gradient flow orthonormalization did not converge. 
@@ -36,6 +39,33 @@ function orthonormalize!(LRA::TwoFactorApproximation, alg::GradientDescent)
     LRA.Z .= LRA.Z*Ainv'
 end
 
+function orthonormalize!(U, alg::GradientDescent)
+    @unpack μ, atol, rtol, maxiter = alg 
+    r = size(U,2)
+    K = U'*U
+    A = Matrix{eltype(K)}(I, r, r)
+    dA = similar(A)
+    iter = 0
+    ϵ = norm(A'*K*A - I)^2
+    while ϵ > atol && ϵ > r*rtol && iter < maxiter
+        dA .= - K*A*(A'*K*A - I)
+        A .+= μ*dA
+        iter += 1
+        ϵ = norm(A'*K*A - I)^2
+    end
+    if iter == maxiter
+        @warn "Gradient flow orthonormalization did not converge. 
+               Iterations exceeded maxiters = $maxiter. 
+               Primal residual: $(norm(A'*K*A - I)^2)"
+    end
+    U .= U*A
+end
+
+function orthonormalize!(U, ::SecondMomentMatching)
+    P = Symmetric(U'*U)
+    Λ, V = eigen(P)
+    U .= U*V*Diagonal(1 ./ sqrt.(Λ)) * V'
+end
 function orthonormalize!(LRA::TwoFactorApproximation, ::QR)
     Q, R = qr(LRA.U)
     LRA.U .= Matrix(Q) # ToDo: store Q in terms of householder reflections
@@ -48,6 +78,11 @@ function orthonormalize!(LRA::SVDLikeApproximation, ::QR)
     LRA.U .= Matrix(Q) 
     LRA.V .= Matrix(P) 
     LRA.S .= RU*S*RV'
+end
+
+function orthonormalize!(U, ::QR)
+    Q, _ = qr(U)
+    U .= Matrix(Q)
 end
 
 function orthonormalize!(LRA::TwoFactorApproximation, ::SVD)
@@ -63,7 +98,30 @@ function orthonormalize!(LRA::SVDLikeApproximation, ::SVD)
     LRA.S .= Diagonal(SU)*VU*LRA.S*VV'*Diagonal(SV)
     LRA.V .= V
 end
+
 # ToDo: add Gram-Schmidt orthonormalization
+# ToDo: add minium second order matching orthonormalization:  https://link.springer.com/content/pdf/10.1007/s00211-021-01178-8.pdf
+
+# rank adaptation
+function normal_component(U, Z, C, dY; tol = 1e-8)
+    # U = basis
+    # Z = coefficients
+    # C = covariance matrix, Z'*Z for example (assumed to be of very small dimension)
+    # dY = dynamics, f(UZ') for example
+    return (I - U*U')*dY*(I-Z*pinv(C, atol = tol)*Z')
+end
+
+function normal_component(LRA::TwoFactorApproximation, C, dY; tol = 1e-8)
+    # C = covariance matrix, Z'*Z for example (assumed to be of very small dimension)
+    # dY = dynamics, f(UZ') for example
+    return normal_component(LRA.U, LRA.Z, C, dY; tol = tol)
+end
+
+function normal_component(LRA::TwoFactorApproximation, dY; tol = 1e-8)
+    # C = covariance matrix, Z'*Z for example (assumed to be of very small dimension)
+    # dY = dynamics, f(UZ') for example
+    return normal_component(LRA.U, LRA.Z, LRA.Z'*LRA.Z, dY; tol = tol)
+end
 
 # gradient descent update for truncated svd
 # This is work in progress and will be tailored to TwoFactorApproximation input types etc. 
