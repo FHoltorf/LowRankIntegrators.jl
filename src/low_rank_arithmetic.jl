@@ -54,6 +54,8 @@ getindex(LRA::SVDLikeApproximation, i::Int, j::Int) = sum(LRA.U[i,k]*sum(LRA.S[k
 getindex(LRA::SVDLikeApproximation, i::AbstractVector, j::AbstractVector) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V[j,:])
 getindex(LRA::SVDLikeApproximation, i::AbstractVector, ::Colon) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V)
 getindex(LRA::SVDLikeApproximation, ::Colon, j::AbstractVector) = SVDLikeApproximation(LRA.U, LRA.S, LRA.V[j,:])
+hcat(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(hcat(A.U, B.U), blockdiagonal(A.S, B.S), blockdiagonal(A.V, B.V))
+vcat(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(blockdiagonal(A.U, B.U), blockdiagonal(A.S, B.S), hcat(A.V, B.V))
 
 rank(LRA::TwoFactorApproximation) = size(LRA.U, 2)
 size(LRA::TwoFactorApproximation) = (size(LRA.U,1), size(LRA.Z,1))
@@ -68,8 +70,7 @@ getindex(LRA::TwoFactorApproximation, ::Colon, j::AbstractVector) = TwoFactorApp
 
 hcat(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(hcat(A.U, B.U), blockdiagonal(A.Z, B.Z))
 vcat(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(blockdiagonal(A.U, B.U), hcat(A.Z, B.Z))
-# [UZ' AB'] = [U A] [Z' 0
-#                    0 B'] = [UZ' ]
+
 # simple support of adjoints, probably not ideal though
 adjoint(LRA::TwoFactorApproximation) = TwoFactorApproximation(conj(LRA.Z),conj(LRA.U)) 
 adjoint(LRA::SVDLikeApproximation) = TwoFactorApproximation(conj(LRA.V),LRA.S',conj(LRA.U)) 
