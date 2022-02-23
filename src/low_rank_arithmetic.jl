@@ -1,5 +1,5 @@
 using Combinatorics
-import Base: +, -, *, size, Matrix, getindex, hcat, vcat
+import Base: +, -, *, size, Matrix, getindex, hcat, vcat, axes, broadcasted, BroadcastStyle
 import LinearAlgebra: rank, adjoint
 
 abstract type AbstractLowRankApproximation end
@@ -51,25 +51,32 @@ size(LRA::SVDLikeApproximation, ::Val{2}) = size(LRA.V,1)
 size(LRA::SVDLikeApproximation, i::Int) = size(LRA, Val(i))
 Matrix(LRA::SVDLikeApproximation) = LRA.U*LRA.S*LRA.V'
 getindex(LRA::SVDLikeApproximation, i::Int, j::Int) = sum(LRA.U[i,k]*sum(LRA.S[k,s]*LRA.V[j,s] for s in 1:rank(LRA)) for k in 1:rank(LRA)) # good enough for now
-getindex(LRA::SVDLikeApproximation, i::AbstractVector, j::AbstractVector) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V[j,:])
-getindex(LRA::SVDLikeApproximation, i::AbstractVector, ::Colon) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V)
-getindex(LRA::SVDLikeApproximation, ::Colon, j::AbstractVector) = SVDLikeApproximation(LRA.U, LRA.S, LRA.V[j,:])
+getindex(LRA::SVDLikeApproximation, i, j) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V[j,:])  # good enough for now
+getindex(LRA::SVDLikeApproximation, ::Colon, j) = SVDLikeApproximation(LRA.U, LRA.S, LRA.V[j,:])  # good enough for now
+getindex(LRA::SVDLikeApproximation, i, ::Colon) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V)  # good enough for now
+
 hcat(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(hcat(A.U, B.U), blockdiagonal(A.S, B.S), blockdiagonal(A.V, B.V))
 vcat(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(blockdiagonal(A.U, B.U), blockdiagonal(A.S, B.S), hcat(A.V, B.V))
 
 rank(LRA::TwoFactorApproximation) = size(LRA.U, 2)
+
 size(LRA::TwoFactorApproximation) = (size(LRA.U,1), size(LRA.Z,1))
 size(LRA::TwoFactorApproximation, ::Val{1}) = size(LRA.U,1)
 size(LRA::TwoFactorApproximation, ::Val{2}) = size(LRA.Z,1)
 size(LRA::TwoFactorApproximation, i::Int) = size(LRA, Val(i))
+
+axes(LRA::AbstractLowRankApproximation) = map(Base.oneto, size(LRA))
+
 Matrix(LRA::TwoFactorApproximation) = LRA.U*LRA.Z'
+
 getindex(LRA::TwoFactorApproximation, i::Int, j::Int) = sum(LRA.U[i,k]*LRA.Z[j,k] for k in 1:rank(LRA)) # good enough for now
-getindex(LRA::TwoFactorApproximation, i::AbstractVector, j::AbstractVector) = TwoFactorApproximation(LRA.U[i,:], LRA.Z[j,:])
-getindex(LRA::TwoFactorApproximation, i::AbstractVector, ::Colon) = TwoFactorApproximation(LRA.U[i,:], LRA.Z)
-getindex(LRA::TwoFactorApproximation, ::Colon, j::AbstractVector) = TwoFactorApproximation(LRA.U, LRA.Z[j,:])
+getindex(LRA::TwoFactorApproximation, i, j) = TwoFactorApproximation(LRA.U[i,:], LRA.Z[j,:])
+getindex(LRA::TwoFactorApproximation, ::Colon, j) = TwoFactorApproximation(LRA.U, LRA.Z[j,:])
+getindex(LRA::TwoFactorApproximation, i, ::Colon) = TwoFactorApproximation(LRA.U[i,:], LRA.Z)
 
 hcat(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(hcat(A.U, B.U), blockdiagonal(A.Z, B.Z))
 vcat(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(blockdiagonal(A.U, B.U), hcat(A.Z, B.Z))
+
 
 # simple support of adjoints, probably not ideal though
 adjoint(LRA::TwoFactorApproximation) = TwoFactorApproximation(conj(LRA.Z),conj(LRA.U)) 
@@ -305,3 +312,22 @@ end
 function add_scalar(A, α::Number)
     return A .+ α
 end
+
+# broadcasting experiments
+broadcasted(::typeof(*), A::AbstractLowRankApproximation, B::AbstractLowRankApproximation) = hadamard(A,B)
+broadcasted(::typeof(*), A::AbstractLowRankApproximation, b::AbstractVector) = multiply_cols(A,b)
+broadcasted(::typeof(*), A::AbstractLowRankApproximation, b::Adjoint{<:Number, <:AbstractVector}) = multiply_rows(A, transpose(b))
+broadcasted(::typeof(*), A::AbstractLowRankApproximation, b::Transpose{<:Number, <:AbstractVector}) = multiply_rows(A, transpose(b))
+
+broadcasted(::typeof(+), A::AbstractLowRankApproximation, α::Number) = add_scalar(A, α)
+broadcasted(::typeof(+), α::Number, A::AbstractLowRankApproximation) = add_scalar(A, α)
+broadcasted(::typeof(+), A::AbstractLowRankApproximation, b::AbstractVector) = add_to_cols(A, b)
+broadcasted(::typeof(+), A::AbstractLowRankApproximation, b::Adjoint{<:Number, <:AbstractVector}) = add_to_rows(A, transpose(b))
+broadcasted(::typeof(+), A::AbstractLowRankApproximation, b::Transpose{<:Number, <:AbstractVector}) = add_to_rows(A, transpose(b))
+
+broadcasted(::typeof(+), b::AbstractVector, A::AbstractLowRankApproximation) = add_to_cols(A, b)
+broadcasted(::typeof(+), b::Adjoint{<:Number, <:AbstractVector}, A::AbstractLowRankApproximation) = add_to_rows(A, transpose(b))
+broadcasted(::typeof(+), b::Transpose{<:Number, <:AbstractVector}, A::AbstractLowRankApproximation) = add_to_rows(A, transpose(b))
+
+broadcasted(::typeof(^), A::AbstractLowRankApproximation, d::Int) = elpow(A, d)
+broadcasted(::typeof(Base.literal_pow), ::typeof(^), A::AbstractLowRankApproximation, ::Val{d}) where d = elpow(A, d)
