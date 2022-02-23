@@ -153,7 +153,7 @@ function unconventional_step!(u, cache, t, dt)
     
     if !isnothing(y)
         ycurr .= y(t+dt)
-        Δy .= ycurr - yprev
+        Δy .= ycurr - u#yprev
         yprev .= ycurr
     end
 
