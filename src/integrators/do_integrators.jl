@@ -189,14 +189,6 @@ function gd_truncated_svd!(U,Z,C,Ψ; μ=0.1, ϵ=1e-8, maxiter = 100, pinv_tol = 
     end
 end
 
-# rank adaptation
-function normal_direction(U, Z, C, dY; tol = 1e-8)
-    # U = basis
-    # Z = coefficients
-    # C = covariance matrix, Z'*Z for example (assumed to be of very small dimension)
-    # dY = dynamics, f(UZ') for example
-    return (I - U*U')*dY*(I-Z*pinv(C, atol = tol)*Z') 
-end
 
 # opnorm(N)*dt > σ_min => update rank
 
