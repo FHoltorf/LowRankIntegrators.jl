@@ -51,9 +51,13 @@ size(LRA::SVDLikeApproximation, ::Val{2}) = size(LRA.V,1)
 size(LRA::SVDLikeApproximation, i::Int) = size(LRA, Val(i))
 Matrix(LRA::SVDLikeApproximation) = LRA.U*LRA.S*LRA.V'
 getindex(LRA::SVDLikeApproximation, i::Int, j::Int) = sum(LRA.U[i,k]*sum(LRA.S[k,s]*LRA.V[j,s] for s in 1:rank(LRA)) for k in 1:rank(LRA)) # good enough for now
+getindex(LRA::SVDLikeApproximation, i, j::Int) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V[[j],:])  # good enough for now
+getindex(LRA::SVDLikeApproximation, i::Int, j) = SVDLikeApproximation(LRA.U[[i],:], LRA.S, LRA.V[j,:])  # good enough for now
 getindex(LRA::SVDLikeApproximation, i, j) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V[j,:])  # good enough for now
-getindex(LRA::SVDLikeApproximation, ::Colon, j) = SVDLikeApproximation(LRA.U, LRA.S, LRA.V[j,:])  # good enough for now
-getindex(LRA::SVDLikeApproximation, i, ::Colon) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V)  # good enough for now
+getindex(LRA::SVDLikeApproximation, ::Colon, j::AbstractVector) = SVDLikeApproximation(LRA.U, LRA.S, LRA.V[j,:])  # good enough for now
+getindex(LRA::SVDLikeApproximation, ::Colon, j::Int) = SVDLikeApproximation(LRA.U, LRA.S, LRA.V[[j],:])  # good enough for now
+getindex(LRA::SVDLikeApproximation, i::AbstractVector, ::Colon) = SVDLikeApproximation(LRA.U[i,:], LRA.S, LRA.V)  # good enough for now
+getindex(LRA::SVDLikeApproximation, i::Int, ::Colon) = SVDLikeApproximation(LRA.U[[i],:], LRA.S, LRA.V)  # good enough for now
 
 hcat(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(hcat(A.U, B.U), blockdiagonal(A.S, B.S), blockdiagonal(A.V, B.V))
 vcat(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(blockdiagonal(A.U, B.U), blockdiagonal(A.S, B.S), hcat(A.V, B.V))
@@ -70,9 +74,13 @@ axes(LRA::AbstractLowRankApproximation) = map(Base.oneto, size(LRA))
 Matrix(LRA::TwoFactorApproximation) = LRA.U*LRA.Z'
 
 getindex(LRA::TwoFactorApproximation, i::Int, j::Int) = sum(LRA.U[i,k]*LRA.Z[j,k] for k in 1:rank(LRA)) # good enough for now
+getindex(LRA::TwoFactorApproximation, i, j::Int) = TwoFactorApproximation(LRA.U[i,:], LRA.Z[[j],:])
+getindex(LRA::TwoFactorApproximation, i::Int, j) = TwoFactorApproximation(LRA.U[[i],:], LRA.Z[j,:])
 getindex(LRA::TwoFactorApproximation, i, j) = TwoFactorApproximation(LRA.U[i,:], LRA.Z[j,:])
-getindex(LRA::TwoFactorApproximation, ::Colon, j) = TwoFactorApproximation(LRA.U, LRA.Z[j,:])
-getindex(LRA::TwoFactorApproximation, i, ::Colon) = TwoFactorApproximation(LRA.U[i,:], LRA.Z)
+getindex(LRA::TwoFactorApproximation, ::Colon, j::AbstractVector) = TwoFactorApproximation(LRA.U, LRA.Z[j,:])
+getindex(LRA::TwoFactorApproximation, i::AbstractVector, ::Colon) = TwoFactorApproximation(LRA.U[i,:], LRA.Z)
+getindex(LRA::TwoFactorApproximation, ::Colon, j::Int) = TwoFactorApproximation(LRA.U, LRA.Z[[j],:])
+getindex(LRA::TwoFactorApproximation, i::Int, ::Colon) = TwoFactorApproximation(LRA.U[[i],:], LRA.Z)
 
 hcat(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(hcat(A.U, B.U), blockdiagonal(A.Z, B.Z))
 vcat(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(blockdiagonal(A.U, B.U), hcat(A.Z, B.Z))
