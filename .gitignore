@@ -6,3 +6,4 @@ Manifest.toml
 readme_batches.md
 wip/
 examples/.ipynb_checkpoints
+*.mp4
