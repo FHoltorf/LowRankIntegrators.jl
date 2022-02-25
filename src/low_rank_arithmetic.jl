@@ -342,11 +342,13 @@ function add_scalar(A, α::Number)
     return A .+ α
 end
 
-# broadcasting experiments
+# support broadcasting operations
 broadcasted(::typeof(*), A::AbstractLowRankApproximation, B::AbstractLowRankApproximation) = hadamard(A,B)
 broadcasted(::typeof(*), A::AbstractLowRankApproximation, b::AbstractVector) = multiply_cols(A,b)
 broadcasted(::typeof(*), A::AbstractLowRankApproximation, b::Adjoint{<:Number, <:AbstractVector}) = multiply_rows(A, transpose(b))
 broadcasted(::typeof(*), A::AbstractLowRankApproximation, b::Transpose{<:Number, <:AbstractVector}) = multiply_rows(A, transpose(b))
+broadcasted(::typeof(*), A::AbstractLowRankApproximation, B::AbstractMatrix) = Matrix(A) .* B
+broadcasted(::typeof(*), A::AbstractMatrix, B::AbstractLowRankApproximation) = A .* Matrix(B)
 
 broadcasted(::typeof(+), A::AbstractLowRankApproximation, α::Number) = add_scalar(A, α)
 broadcasted(::typeof(+), α::Number, A::AbstractLowRankApproximation) = add_scalar(A, α)
