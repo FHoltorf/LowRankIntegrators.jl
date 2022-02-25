@@ -97,6 +97,8 @@ adjoint(LRA::SVDLikeApproximation) = TwoFactorApproximation(conj(LRA.V),LRA.S',c
 ## Multiplication
 *(A::AbstractMatrix, B::SVDLikeApproximation) = SVDLikeApproximation(A*B.U, B.S, B.V)
 *(A::SVDLikeApproximation, B::AbstractMatrix) = SVDLikeApproximation(A.U, A.S, B'*A.V)
+*(A::SVDLikeApproximation, ::UniformScaling) = A
+*(::UniformScaling, A::SVDLikeApproximation) = A
 function *(A::SVDLikeApproximation, B::SVDLikeApproximation)
     if rank(A) ≤ rank(B)
         return SVDLikeApproximation(A.U, A.S, B.V*B.S'*(B.U'*A.V))
@@ -111,6 +113,8 @@ end
 
 *(A::AbstractMatrix, B::TwoFactorApproximation) = TwoFactorApproximation(A*B.U, B.Z)
 *(A::TwoFactorApproximation, B::AbstractMatrix) = TwoFactorApproximation(A.U, B'*A.Z)
+*(A::TwoFactorApproximation, ::UniformScaling) = A
+*(::UniformScaling, A::TwoFactorApproximation) = A
 function *(A::TwoFactorApproximation,B::TwoFactorApproximation)
     if rank(A) ≤ rank(B) # minimize upper bound on rank
         return TwoFactorApproximation(A.U, B.Z*(B.U'*A.Z))
