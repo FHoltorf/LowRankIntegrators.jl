@@ -1,3 +1,28 @@
+function truncated_svd(A::AbstractMatrix, r::Int)
+    @assert r <= minimum(size(A)) "truncated rank can not exceed the maximum rank of A"
+    U, S, V = svd(A)
+    return SVDLikeApproximation(U[:,1:r], Matrix(Diagonal(S[1:r])), V[:,1:r])
+end
+
+function truncated_svd(A::AbstractMatrix; ϵ = 0)
+    U, S, V = svd(A)
+    r = truncate_to_tolerance(S, ϵ)
+    return SVDLikeApproximation(U[:,1:r], Matrix(Diagonal(S[1:r])), V[:,1:r])
+end
+
+function truncate_to_tolerance(S, tol)
+    s = 0
+    r = length(S)
+    for σ in reverse(S)
+        s += σ^2
+        if s > tol^2
+            break
+        end
+        r -= 1
+    end 
+    return r
+end 
+
 struct GradientDescent
     maxiter::Int
     μ::Float64

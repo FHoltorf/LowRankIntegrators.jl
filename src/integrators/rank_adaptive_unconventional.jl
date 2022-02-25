@@ -260,16 +260,3 @@ function rankadaptive_unconventional_step!(u, cache, t, dt)
         return SVDLikeApproximation(Uhat*U[:,1:r_new], Matrix(Diagonal(S[1:r_new])), Vhat*V[:,1:r_new]), true
     end    
 end
-
-function truncate_to_tolerance(S, tol)
-    s = 0
-    r = length(S)
-    for σ in reverse(S)
-        s += σ^2
-        if s > tol^2
-            break
-        end
-        r -= 1
-    end 
-    return r
-end 
