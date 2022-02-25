@@ -85,7 +85,6 @@ getindex(LRA::TwoFactorApproximation, i::Int, ::Colon) = TwoFactorApproximation(
 hcat(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(hcat(A.U, B.U), blockdiagonal(A.Z, B.Z))
 vcat(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(blockdiagonal(A.U, B.U), hcat(A.Z, B.Z))
 
-
 # simple support of adjoints, probably not ideal though
 adjoint(LRA::TwoFactorApproximation) = TwoFactorApproximation(conj(LRA.Z),conj(LRA.U)) 
 adjoint(LRA::SVDLikeApproximation) = TwoFactorApproximation(conj(LRA.V),LRA.S',conj(LRA.U)) 
@@ -93,6 +92,13 @@ adjoint(LRA::SVDLikeApproximation) = TwoFactorApproximation(conj(LRA.V),LRA.S',c
 # Is the following alternative better?
 # *(A::SVDLikeApproximation, B::SVDLikeApproximation) = SVDLikeApproximation(A.U, A.S*(A.V'*B.U)*B.S, B.V)
 # it would preserve orthonormality of range/co-range factors but make core rectangular and increase the storage cost unnecessarily.
+
+# converting between both representations
+TwoFactorApproximation(A::SVDLikeApproximation) = TwoFactorApproximation(A.U, A.V*A.S')
+function SVDLikeApproximation(A::TwoFactorApproximation) 
+    U, S, V = svd(A.Z)
+    return SVDLikeApproximation(A.U*V, S', U)
+end
 
 ## Multiplication
 *(A::AbstractMatrix, B::SVDLikeApproximation) = SVDLikeApproximation(A*B.U, B.S, B.V)
@@ -127,6 +133,10 @@ end
 *(A::TwoFactorApproximation, v::AbstractVector) = A.U*(A.Z'*v)
 *(v::AbstractVector, A::TwoFactorApproximation) = (v*A.U)*A.Z'
 
+# default to TwoFactorApproximation
+*(A::TwoFactorApproximation, B::SVDLikeApproximation) = A*TwoFactorApproximation(B)
+*(A::SVDLikeApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(B)*A
+
 ## Addition
 # just for convenience:
 function blockdiagonal(A::T1, B::T2) where {T1, T2 <: Union{AbstractMatrix, AbstractVector}}
@@ -151,6 +161,12 @@ end
 -(A::TwoFactorApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(hcat(A.U, B.U), hcat(A.Z, -B.Z))
 -(A::TwoFactorApproximation, B::AbstractMatrix) = Matrix(A) - B
 -(A::AbstractMatrix, B::TwoFactorApproximation) = A - Matrix(B)
+
+# default to TwoFactorApproximation
++(A::TwoFactorApproximation, B::SVDLikeApproximation) = A+TwoFactorApproximation(B)
++(A::SVDLikeApproximation, B::TwoFactorApproximation) = B+A
+-(A::TwoFactorApproximation, B::SVDLikeApproximation) = A-TwoFactorApproximation(B)
+-(A::SVDLikeApproximation, B::TwoFactorApproximation) = TwoFactorApproximation(A)-B
 
 # elementwise product
 function hadamard(A::SVDLikeApproximation, B::SVDLikeApproximation) 
@@ -196,7 +212,14 @@ function hadamard(A::TwoFactorApproximation, B::TwoFactorApproximation)
     end
     return TwoFactorApproximation(U,Z)
 end
+
+# default to TwoFactorApproximation
+hadamard(A::TwoFactorApproximation, B::SVDLikeApproximation) = hadamard(A, TwoFactorApproximation(B))
+hadamard(A::SVDLikeApproximation, B::TwoFactorApproximation) = hadamard(TwoFactorApproximation(A), B)
+
 # catch all case
+hadamard(A::AbstractLowRankApproximation, B::AbstractMatrix) = Matrix(A) .* B
+hadamard(A::AbstractMatrix, B::AbstractLowRankApproximation) = Matrix(A) .* B
 function hadamard(A,B)
     return A .* B
 end
