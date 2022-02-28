@@ -3,7 +3,7 @@ module LowRankIntegrators
 using LinearAlgebra, DifferentialEquations, UnPack
 import DifferentialEquations: step!, set_u!, init
 
-include("low_rank_arithmetic.jl")
+include("LowRankArithmetic.jl")
 export SVDLikeApproximation, TwoFactorApproximation, 
        truncated_svd,
        Matrix, rank, size
