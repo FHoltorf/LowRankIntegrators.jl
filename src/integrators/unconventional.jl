@@ -153,7 +153,7 @@ function unconventional_step!(u, cache, t, dt)
     
     if !isnothing(y)
         ycurr .= y(t+dt)
-        Δy .= ycurr - u#yprev
+        Δy .= ycurr - yprev
         yprev .= ycurr
     end
 
@@ -180,7 +180,7 @@ function unconventional_step!(u, cache, t, dt)
     u.S .= SIntegrator.u
 end
 
-function step!(integrator::DLRIntegrator, alg::UnconventionalAlgorithm, dt)
+function step!(integrator::DLRIntegrator, ::UnconventionalAlgorithm, dt)
     @unpack u, t, iter, cache = integrator
     unconventional_step!(u, cache, t, dt)
     integrator.t += dt

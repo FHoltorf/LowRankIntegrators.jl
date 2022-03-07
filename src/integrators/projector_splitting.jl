@@ -295,21 +295,21 @@ function dual_LT_step!(u, cache, t, dt)
     u.S .= QRK.R
 end
 
-function step!(integrator::DLRIntegrator, alg::PrimalLieTrotterProjectorSplitting, dt)
+function step!(integrator::DLRIntegrator, ::PrimalLieTrotterProjectorSplitting, dt)
     @unpack u, t, iter, cache = integrator
     primal_LT_step!(u, cache, t, dt)
     integrator.t += dt
     integrator.iter += 1
 end
 
-function step!(integrator::DLRIntegrator, alg::DualLieTrotterProjectorSplitting, dt)
+function step!(integrator::DLRIntegrator, ::DualLieTrotterProjectorSplitting, dt)
     @unpack u, t, iter, cache = integrator
     dual_LT_step!(u, cache, t, dt)
     integrator.t += dt
     integrator.iter += 1
 end
 
-function step!(integrator::DLRIntegrator, alg::StrangProjectorSplitting, dt)
+function step!(integrator::DLRIntegrator, ::StrangProjectorSplitting, dt)
     @unpack u, t, iter, cache = integrator
     @unpack primal_cache, dual_cache = cache
     primal_LT_step!(u, primal_cache, t, dt/2)
