@@ -234,14 +234,22 @@ function init(prob::MatrixDataProblem, alg::algType, dt) where algType <: Union{
     return DLRIntegrator(u, t0, dt, sol, alg, cache, 0)
 end
 
-function primal_LT_step!(u, cache, t, dt)
-    @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator, y, ycurr, yprev, Δy = cache
-
+function primal_LT_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
+    y, ycurr, yprev, Δy = cache
     if !isnothing(y) # should be done via dispatch
         ycurr .= y(t+dt)
         Δy .= ycurr - yprev
         yprev .= ycurr
     end
+    primal_LT_step!(u, cache, t, dt)
+end
+
+function primal_LT_step!(u, cache, t, dt, ::Type{<:MatrixDEProblem})
+    primal_LT_step!(u, cache, t, dt)
+end
+
+function primal_LT_step!(u, cache, t, dt)
+    @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator = cache
 
     # K step
     US .= u.U*u.S
@@ -265,13 +273,22 @@ function primal_LT_step!(u, cache, t, dt)
     u.S .= QRL.R'
 end
 
-function dual_LT_step!(u, cache, t, dt)
-    @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator, y, ycurr, yprev, Δy = cache
+function dual_LT_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
+    y, ycurr, yprev, Δy = cache
     if !isnothing(y) # should be done via dispatch
         ycurr .= y(t+dt)
         Δy .= ycurr - yprev
         yprev .= ycurr
     end
+    dual_LT_step!(u, cache, t, dt)
+end
+
+function dual_LT_step!(u, cache, t, dt, ::Type{<:MatrixDEProblem})
+    dual_LT_step!(u, cache, t, dt)
+end
+
+function dual_LT_step!(u, cache, t, dt)
+    @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator = cache
 
     # L step
     VS .= u.V*u.S'
@@ -296,24 +313,24 @@ function dual_LT_step!(u, cache, t, dt)
 end
 
 function step!(integrator::DLRIntegrator, ::PrimalLieTrotterProjectorSplitting, dt)
-    @unpack u, t, iter, cache = integrator
-    primal_LT_step!(u, cache, t, dt)
+    @unpack u, t, iter, cache, probType = integrator
+    primal_LT_step!(u, cache, t, dt, probType)
     integrator.t += dt
     integrator.iter += 1
 end
 
 function step!(integrator::DLRIntegrator, ::DualLieTrotterProjectorSplitting, dt)
-    @unpack u, t, iter, cache = integrator
-    dual_LT_step!(u, cache, t, dt)
+    @unpack u, t, iter, cache, probType = integrator
+    dual_LT_step!(u, cache, t, dt, probType)
     integrator.t += dt
     integrator.iter += 1
 end
 
 function step!(integrator::DLRIntegrator, ::StrangProjectorSplitting, dt)
-    @unpack u, t, iter, cache = integrator
+    @unpack u, t, iter, cache, probType = integrator
     @unpack primal_cache, dual_cache = cache
-    primal_LT_step!(u, primal_cache, t, dt/2)
-    dual_LT_step!(u, dual_cache, t + dt/2, dt/2)
+    primal_LT_step!(u, primal_cache, t, dt/2, probType)
+    dual_LT_step!(u, dual_cache, t + dt/2, dt/2, probType)
     integrator.t += dt
     integrator.iter += 1
 end

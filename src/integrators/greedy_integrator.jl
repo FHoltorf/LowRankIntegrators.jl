@@ -43,19 +43,19 @@ function init(prob::MatrixDataProblem, alg::GreedyIntegrator, dt)
     # initialize cache
     cache = alg_cache(prob, alg, u, dt)
     sol.Y[1] = deepcopy(prob.u0)
-    return DLRIntegrator(u, t0, dt, sol, alg, cache, 0)
+    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)
 end
 
-function greedy_step!(u::TwoFactorApproximation, cache, t, dt)
+function greedy_step!(u::TwoFactorApproximation, cache, t, dt, ::Type{<:MatrixDataProblem})
     @unpack Z, U = u 
     @unpack Y, X = cache
-    X .= Y(t)
+    X .= Y(t+dt)
     mul!(Z, X', U)
     Q, _, P = svd(X'*Z)
     mul!(U, Q, P') 
 end
 
-function greedy_step!(u::SVDLikeApproximation, cache, t, dt)
+function greedy_step!(u::SVDLikeApproximation, cache, t, dt, ::Type{<:MatrixDataProblem})
     @unpack U, S, V = u 
     @unpack Y, X, XV, XU = cache
     X .= Y(t+dt)
@@ -68,8 +68,8 @@ function greedy_step!(u::SVDLikeApproximation, cache, t, dt)
 end
 
 function step!(integrator::DLRIntegrator, ::GreedyIntegrator, dt)
-    @unpack u, t, iter, cache = integrator
-    greedy_step!(u, cache, t, dt)
+    @unpack u, t, iter, cache, probType = integrator
+    greedy_step!(u, cache, t, dt, probType)
     integrator.t += dt
     integrator.iter += 1
 end

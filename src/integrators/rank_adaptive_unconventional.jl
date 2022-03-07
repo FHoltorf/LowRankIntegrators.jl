@@ -115,7 +115,7 @@ function init(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorithm, d
     # initialize cache
     cache = alg_cache(prob, alg, u, t0)
     
-    return DLRIntegrator(u, t0, dt, sol, alg, cache, 0)   
+    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)   
 end
 
 function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorithm, u, t)
@@ -184,7 +184,7 @@ function init(prob::MatrixDataProblem, alg::RankAdaptiveUnconventionalAlgorithm,
     # initialize cache
     cache = alg_cache(prob, alg, u, dt)
     sol.Y[1] = deepcopy(prob.u0)
-    return DLRIntegrator(u, t0, dt, sol, alg, cache, 0)
+    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)
 end
 
 function alg_cache(prob::MatrixDataProblem, alg::RankAdaptiveUnconventionalAlgorithm,u,dt)
@@ -259,8 +259,8 @@ function alg_recache(cache::RankAdaptiveUnconventionalAlgorithm_Cache, alg::Rank
 end
 
 function step!(integrator::DLRIntegrator, alg::RankAdaptiveUnconventionalAlgorithm, dt)
-    @unpack u, t, iter, cache = integrator
-    u_new, rank_adjusted = rankadaptive_unconventional_step!(u, cache, t, dt)
+    @unpack u, t, iter, cache, probType = integrator
+    u_new, rank_adjusted = rankadaptive_unconventional_step!(u, cache, t, dt, probType)
     if rank_adjusted
         integrator.u = u_new
         integrator.cache = alg_recache(cache, alg, u_new, t+dt)
@@ -269,15 +269,23 @@ function step!(integrator::DLRIntegrator, alg::RankAdaptiveUnconventionalAlgorit
     integrator.iter += 1
 end
 
-function rankadaptive_unconventional_step!(u, cache, t, dt)
-    @unpack r, r_max, tol, US, Uhat, VS, Vhat, M, N, KIntegrator, LIntegrator, SIntegrator, y, ycurr, yprev, Δy = cache
-    
+function rankadaptive_unconventional_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
+    @unpack y, ycurr, yprev, Δy = cache
     if !isnothing(y)
         ycurr .= y(t+dt)
         Δy .= ycurr - yprev
         yprev .= ycurr
     end
+    rankadaptive_unconventional_step!(u, cache, t, dt)
+end
 
+function rankadaptive_unconventional_step!(u, cache, t, dt, ::Type{<:MatrixDEProblem})
+    rankadaptive_unconventional_step!(u, cache, t, dt)
+end
+
+function rankadaptive_unconventional_step!(u, cache, t, dt)
+    @unpack r, r_max, tol, US, Uhat, VS, Vhat, M, N, KIntegrator, LIntegrator, SIntegrator = cache
+    
     # K step
     US .= u.U*u.S
     set_u!(KIntegrator, US)

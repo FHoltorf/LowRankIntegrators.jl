@@ -129,7 +129,7 @@ function init(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, dt)
     # initialize cache
     cache = alg_cache(prob, alg, u, dt)
     sol.Y[2] = deepcopy(u) # add first step to solution object
-    return DLRIntegrator(u, t0+dt, dt, sol, alg, cache, 1)   
+    return DLRIntegrator(u, t0+dt, dt, sol, alg, cache, typeof(prob), 1)   
 end
 
 function init(prob::MatrixDataProblem, alg::UnconventionalAlgorithm, dt)
@@ -145,44 +145,52 @@ function init(prob::MatrixDataProblem, alg::UnconventionalAlgorithm, dt)
     # initialize cache
     cache = alg_cache(prob, alg, u, dt)
     sol.Y[1] = deepcopy(prob.u0)
-    return DLRIntegrator(u, t0, dt, sol, alg, cache, 0)
+    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)
+end
+
+function unconventional_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
+    @unpack y, ycurr, yprev, Δy = cache
+
+    ycurr .= y(t+dt)
+    Δy .= ycurr - yprev
+    yprev .= ycurr
+
+    unconventional_step!(u, cache, t, dt)
+end
+
+function unconventional_step!(u, cache, t, dt, ::Type{<:MatrixDEProblem})
+    unconventional_step!(u, cache, t, dt)
 end
 
 function unconventional_step!(u, cache, t, dt)
-    @unpack US, VS, M, N, QRK, QRL, KIntegrator, LIntegrator, SIntegrator, y, ycurr, yprev, Δy = cache
+    @unpack US, VS, M, N, QRK, QRL, KIntegrator, LIntegrator, SIntegrator = cache
     
-    if !isnothing(y)
-        ycurr .= y(t+dt)
-        Δy .= ycurr - yprev
-        yprev .= ycurr
-    end
-
     # K step
-    US .= u.U*u.S
+    mul!(US, u.U, u.S)
     set_u!(KIntegrator, US)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
     QRK = qr!(US)
-    M .= Matrix(QRK.Q)'*u.U
+    mul!(M, Matrix(QRK.Q)', u.U)
     
     # L step
-    VS .= u.V*u.S'
+    mul!(VS, u.V, u.S')
     set_u!(LIntegrator, VS)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
     QRL = qr!(VS)
-    N .= Matrix(QRL.Q)'*u.V
+    mul!(N,Matrix(QRL.Q)',u.V)
     u.V .= Matrix(QRL.Q)
     u.U .= Matrix(QRK.Q)
     
-    set_u!(SIntegrator, M*u.S*N')
+    set_u!(SIntegrator, M*u.S*N') # add cache for initial condition? -> prolly should do
     step!(SIntegrator, dt, true)
     u.S .= SIntegrator.u
 end
 
 function step!(integrator::DLRIntegrator, ::UnconventionalAlgorithm, dt)
-    @unpack u, t, iter, cache = integrator
-    unconventional_step!(u, cache, t, dt)
+    @unpack u, t, iter, cache, probType = integrator
+    unconventional_step!(u, cache, t, dt, probType)
     integrator.t += dt
     integrator.iter += 1
 end

@@ -1,4 +1,3 @@
-
 abstract type AbstractDLRProblem end
 abstract type AbstractDLRSolution end
 abstract type AbstractDLRIntegrator end
@@ -21,7 +20,7 @@ MatrixDEProblem(f, u0, tspan) = MatrixDEProblem(f, nothing, nothing, nothing, u0
 MatrixDEProblem(corange_projected_f, range_projected_f, core_projected_f, u0, tspan) = MatrixDEProblem(nothing, corange_projected_f, range_projected_f, core_projected_f, u0, tspan)
 
 """
-    Problem of tracking the low rank decomposition u(t) = U(t)S(t) V(t)' of a 
+    Problem of tracking the low rank decomposition u(t) = U(t)S(t) V(t)' (or U(t)Z(t)') of a 
     time-dependent (or streamed) matrix y(t) with t ∈ [t_0, t_f].
 """
 mutable struct MatrixDataProblem{uType, tType} <: AbstractDLRProblem 
@@ -41,13 +40,14 @@ end
 """
     Integrator computing solution to a dynamic low rank approximation problem
 """
-mutable struct DLRIntegrator{uType, tType, aType, cType} <: AbstractDLRIntegrator
+mutable struct DLRIntegrator{uType, tType, aType, cType, pType} <: AbstractDLRIntegrator
     u::uType
     t::tType
     dt::tType
     sol::DLRSolution{uType,tType}
     alg::aType
     cache::cType
+    probType::pType
     iter::Int
 end
 
