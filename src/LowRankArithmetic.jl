@@ -1,6 +1,6 @@
 using Combinatorics
 import Base: +, -, *, size, Matrix, getindex, hcat, vcat, axes, broadcasted, BroadcastStyle
-import LinearAlgebra: rank, adjoint
+import LinearAlgebra: rank, adjoint, svd
 
 abstract type AbstractLowRankApproximation end
 
@@ -362,3 +362,30 @@ broadcasted(::typeof(+), b::Transpose{<:Number, <:AbstractVector}, A::AbstractLo
 
 broadcasted(::typeof(^), A::AbstractLowRankApproximation, d::Int) = elpow(A, d)
 broadcasted(::typeof(Base.literal_pow), ::typeof(^), A::AbstractLowRankApproximation, ::Val{d}) where d = elpow(A, d)
+
+# rounding 
+function svd(A::SVDLikeApproximation, alg=QR())
+    orthonormalize!(A, alg)
+    U_, S_, V_ = svd(A.S)
+    return SVDLikeApproximation(A.U*U_, S_, A.V*V_)
+end
+
+function svd(A::TwoFactorApproximation, alg=QR())
+    orthonormalize!(A, alg)
+    U_, S_, V_ = svd(A.Z)
+    return SVDLikeApproximation(A.U*U_, S_, V_)
+end
+
+#=
+function truncated_svd(A::SVDLikeApproximation, r, alg=QR())
+    orthonormalize!(A, alg)
+    tsvd = truncated_svd(A.S, r)
+    return SVDLikeApproximation(A.U*tsvd, tsvd.S, A.V*V_)
+end
+
+function svd(A::TwoFactorApproximation, r, alg=QR())
+    orthonormalize!(A, alg)
+     = truncated_svd(A.Z, r)
+    return SVDLikeApproximation(A.U*U_, S_, V_)
+end
+=#
