@@ -24,5 +24,6 @@ export PrimalLieTrotterProjectorSplitting,
        RankAdaptiveUnconventionalAlgorithm,
        DOAlgorithm, DirectTimeMarching,
        RankAdaptiveUnconventionalAlgorithm,
+       GreedyIntegrator,
        step!, init 
 end
