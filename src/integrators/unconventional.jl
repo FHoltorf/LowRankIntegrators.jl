@@ -150,11 +150,9 @@ end
 
 function unconventional_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
     @unpack y, ycurr, yprev, Δy = cache
-
     ycurr .= y(t+dt)
     Δy .= ycurr - yprev
     yprev .= ycurr
-
     unconventional_step!(u, cache, t, dt)
 end
 

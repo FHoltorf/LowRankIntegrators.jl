@@ -235,12 +235,10 @@ function init(prob::MatrixDataProblem, alg::algType, dt) where algType <: Union{
 end
 
 function primal_LT_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
-    y, ycurr, yprev, Δy = cache
-    if !isnothing(y) # should be done via dispatch
-        ycurr .= y(t+dt)
-        Δy .= ycurr - yprev
-        yprev .= ycurr
-    end
+    @unpack y, ycurr, yprev, Δy = cache
+    ycurr .= y(t+dt)
+    Δy .= ycurr - yprev
+    yprev .= ycurr
     primal_LT_step!(u, cache, t, dt)
 end
 
@@ -274,12 +272,10 @@ function primal_LT_step!(u, cache, t, dt)
 end
 
 function dual_LT_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
-    y, ycurr, yprev, Δy = cache
-    if !isnothing(y) # should be done via dispatch
-        ycurr .= y(t+dt)
-        Δy .= ycurr - yprev
-        yprev .= ycurr
-    end
+    @unpack y, ycurr, yprev, Δy = cache
+    ycurr .= y(t+dt)
+    Δy .= ycurr - yprev
+    yprev .= ycurr
     dual_LT_step!(u, cache, t, dt)
 end
 

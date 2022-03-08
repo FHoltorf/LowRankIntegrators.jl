@@ -271,11 +271,9 @@ end
 
 function rankadaptive_unconventional_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
     @unpack y, ycurr, yprev, Δy = cache
-    if !isnothing(y)
-        ycurr .= y(t+dt)
-        Δy .= ycurr - yprev
-        yprev .= ycurr
-    end
+    ycurr .= y(t+dt)
+    Δy .= ycurr - yprev
+    yprev .= ycurr
     rankadaptive_unconventional_step!(u, cache, t, dt)
 end
 
@@ -296,7 +294,6 @@ function rankadaptive_unconventional_step!(u, cache, t, dt)
     QRK = qr(Uhat)
     Uhat .= Matrix(QRK.Q)
     M .= Uhat'*u.U # need to figure out how to leave QRK.Q' as is
-    
     
     # L step
     VS .= u.V*u.S'
