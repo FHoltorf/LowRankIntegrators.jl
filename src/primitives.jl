@@ -16,15 +16,23 @@ mutable struct MatrixDEProblem{uType, tType} <: AbstractDLRProblem
     tspan::Tuple{tType, tType}
 end
 
-MatrixDEProblem(f, u0, tspan) = MatrixDEProblem(f, nothing, nothing, nothing, u0, tspan)
-MatrixDEProblem(corange_projected_f, range_projected_f, core_projected_f, u0, tspan) = MatrixDEProblem(nothing, corange_projected_f, range_projected_f, core_projected_f, u0, tspan)
-
 """
     Problem of tracking the low rank decomposition u(t) = U(t)S(t) V(t)' (or U(t)Z(t)') of a 
     time-dependent (or streamed) matrix y(t) with t ∈ [t_0, t_f].
 """
 mutable struct MatrixDataProblem{uType, tType} <: AbstractDLRProblem 
     y
+    u0::uType
+    tspan::Tuple{tType, tType}
+end
+
+"""
+    Problem of identifying optimal projection basis U(t) such that we get good reconstruction
+    y(t) = U(t) Z(t)' where dZ/dt = f(Z,U,t).
+"""
+mutable struct MatrixHybridProblem{uType, tType} <: AbstractDLRProblem
+    y
+    f
     u0::uType
     tspan::Tuple{tType, tType}
 end

@@ -12,7 +12,7 @@ include("utils.jl")
 export orthonormalize!, GradientDescent, QR, SVD, SecondMomentMatching, normal_component
 
 include("primitives.jl")
-export MatrixDEProblem, MatrixDataProblem, 
+export MatrixDEProblem, MatrixDataProblem, MatrixHybridProblem
        DLRIntegrator, DLRSolution, 
        solve
 
