@@ -1,4 +1,4 @@
-using DifferentialEquations, LinearAlgebra, LowRankIntegrators, LaTeXStrings, GLMakie
+using LowRankIntegrators, LaTeXStrings, GLMakie
 # Reaction Network
 # ∅ -> A -> ∅, [k1/(1+(B/θ)^3), k2*A]
 # ∅ -> B -> ∅, [k3/(1+A), k4*B]

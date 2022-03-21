@@ -1,12 +1,8 @@
 module LowRankIntegrators
-
-using LinearAlgebra, DifferentialEquations, UnPack
+using Reexport, UnPack
 import DifferentialEquations: step!, set_u!, init
 
-include("LowRankArithmetic.jl")
-export SVDLikeApproximation, TwoFactorApproximation, 
-       truncated_svd,
-       Matrix, rank, size
+@reexport using LinearAlgebra, DifferentialEquations, LowRankArithmetic
 
 include("utils.jl")
 export orthonormalize!, GradientDescent, QR, SVD, SecondMomentMatching, normal_component
