@@ -7,4 +7,4 @@ readme_batches.md
 wip/
 examples/.ipynb_checkpoints
 *.mp4
-*.DS_STORE
+.DS_STORE
