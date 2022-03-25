@@ -53,8 +53,8 @@ k4 = 1
 ax, ay = props(k1,k2,k3,k4,θ,N) # propensity factors
 Srows = [shift(ν[r][1],N) for r in 1:Nrxn] # shift operators
 Scols = [shift(ν[r][2],N)' for r in 1:Nrxn] # shift operators
-A = [Srows[r]*TwoFactorApproximation(ax[r],ay[r])*Scols[r] for r in 1:Nrxn] # coefficient matrices
-Asum = TwoFactorApproximation(hcat(ax...), hcat(ay...)) # coefficient matrix
+A = [Srows[r]*TwoFactorRepresentation(ax[r],ay[r])*Scols[r] for r in 1:Nrxn] # coefficient matrices
+Asum = TwoFactorRepresentation(hcat(ax...), hcat(ay...)) # coefficient matrix
 
 # chemical master equation
 function cme(P, (A,Asum,Srows,Scols), t) 

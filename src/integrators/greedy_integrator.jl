@@ -21,7 +21,7 @@ function GreedyIntegrator(; Z_alg = Tsit5(), Z_kwargs = Dict{Symbol,Any}())
     return GreedyIntegrator(params)
 end
 
-function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::TwoFactorApproximation, dt)
+function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::TwoFactorRepresentation, dt)
     X = zeros(size(u))
     r = rank(u)
     n = size(X,1)
@@ -29,7 +29,7 @@ function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::TwoFactorA
     return GreedyIntegrator_Cache(prob.y, X, XZ, nothing, nothing, nothing)
 end
 
-function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::SVDLikeApproximation, dt)
+function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::SVDLikeRepresentation, dt)
     X = zeros(size(u))
     r = rank(u)
     n, m = size(X)
@@ -77,7 +77,7 @@ function init(prob::MatrixHybridProblem, alg::GreedyIntegrator, dt)
     return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)
 end
 
-function greedy_step!(u::TwoFactorApproximation, cache, t, dt, ::Type{<:MatrixHybridProblem})
+function greedy_step!(u::TwoFactorRepresentation, cache, t, dt, ::Type{<:MatrixHybridProblem})
     @unpack Z, U = u
     @unpack Y, ZIntegrator, XZ = cache
     step!(ZIntegrator, dt, true) 
@@ -87,7 +87,7 @@ function greedy_step!(u::TwoFactorApproximation, cache, t, dt, ::Type{<:MatrixHy
     mul!(U, Q, P') 
 end
 
-function greedy_step!(u::TwoFactorApproximation, cache, t, dt, ::Type{<:MatrixDataProblem})
+function greedy_step!(u::TwoFactorRepresentation, cache, t, dt, ::Type{<:MatrixDataProblem})
     @unpack Z, U = u 
     @unpack Y, X, XZ = cache
     X .= Y(t+dt)
@@ -97,7 +97,7 @@ function greedy_step!(u::TwoFactorApproximation, cache, t, dt, ::Type{<:MatrixDa
     mul!(U, Q, P') 
 end
 
-function greedy_step!(u::SVDLikeApproximation, cache, t, dt, ::Type{<:MatrixDataProblem})
+function greedy_step!(u::SVDLikeRepresentation, cache, t, dt, ::Type{<:MatrixDataProblem})
     @unpack U, S, V = u 
     @unpack Y, X, XV, XU = cache
     X .= Y(t+dt)

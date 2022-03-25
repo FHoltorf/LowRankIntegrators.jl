@@ -51,7 +51,7 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     tspan = (t0,t0+dt)
     if isnothing(alg.alg_params.K_rhs)
         K_rhs = function (US, V, t)
-                    return Matrix(prob.f(TwoFactorApproximation(US,V),t)*V)
+                    return Matrix(prob.f(TwoFactorRepresentation(US,V),t)*V)
                 end 
     else
         K_rhs = alg.alg_params.K_rhs
@@ -65,7 +65,7 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     
     if isnothing(alg.alg_params.L_rhs)
         L_rhs = function (VS, U, t)
-                    return Matrix(prob.f(TwoFactorApproximation(U,VS),t)'*U)
+                    return Matrix(prob.f(TwoFactorRepresentation(U,VS),t)'*U)
                 end
     else
         L_rhs = alg.alg_params.L_rhs
@@ -80,7 +80,7 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     
     if isnothing(alg.alg_params.S_rhs)
         S_rhs = function (S, (U,V), t)
-                    return Matrix(U'*prob.f(SVDLikeApproximation(U,S,V),t)*V)
+                    return Matrix(U'*prob.f(SVDLikeRepresentation(U,S,V),t)*V)
                 end
     else
         S_rhs = alg.alg_params.S_rhs
@@ -131,7 +131,7 @@ function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorit
 
     if isnothing(alg.alg_params.K_rhs)
         K_rhs = function (US, V, t)
-                    return Matrix(prob.f(TwoFactorApproximation(US,V),t)*V)
+                    return Matrix(prob.f(TwoFactorRepresentation(US,V),t)*V)
                 end 
     else
         K_rhs = alg.alg_params.K_rhs
@@ -142,7 +142,7 @@ function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorit
     set_t!(KIntegrator, t)
     if isnothing(alg.alg_params.L_rhs)
         L_rhs = function (VS, U, t)
-                    return Matrix(prob.f(TwoFactorApproximation(U,VS),t)'*U)
+                    return Matrix(prob.f(TwoFactorRepresentation(U,VS),t)'*U)
                 end
     else
         L_rhs = alg.alg_params.L_rhs
@@ -155,7 +155,7 @@ function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorit
 
     if isnothing(alg.alg_params.S_rhs)
         S_rhs = function (S, (U,V), t)
-                    return Matrix(U'*prob.f(SVDLikeApproximation(U,S,V),t)*V)
+                    return Matrix(U'*prob.f(SVDLikeRepresentation(U,S,V),t)*V)
                 end
     else
         S_rhs = alg.alg_params.S_rhs
@@ -317,6 +317,6 @@ function rankadaptive_unconventional_step!(u, cache, t, dt)
         u.V .= Vhat*V[:,1:r_new]
         return nothing, false
     else
-        return SVDLikeApproximation(Uhat*U[:,1:r_new], Matrix(Diagonal(S[1:r_new])), Vhat*V[:,1:r_new]), true
+        return SVDLikeRepresentation(Uhat*U[:,1:r_new], Matrix(Diagonal(S[1:r_new])), Vhat*V[:,1:r_new]), true
     end    
 end
