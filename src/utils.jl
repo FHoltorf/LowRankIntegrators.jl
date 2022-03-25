@@ -1,32 +1,65 @@
-full(LRA::LowRankApproximation) = LRA.U*LRA.S*LRA.V'
-
-mutable struct MatrixDataIntegrator{yType, uType, lType, rType}
-    Δy::yType
-    u::uType
-    left_factor::lType
-    right_factor::rType 
-    sign::Int
+# rank adaptation
+function normal_component(U, Z, C, dY; tol = 1e-8)
+    # U = basis
+    # Z = coefficients
+    # C = covariance matrix, Z'*Z for example (assumed to be of very small dimension)
+    # dY = dynamics, f(UZ') for example
+    return (I - U*U')*dY*(I-Z*pinv(C, atol = tol)*Z')
 end
 
-function step!(integrator::MatrixDataIntegrator, dt, ::Bool=true)
-    step!(integrator)
+function normal_component(LRA::TwoFactorRepresentation, C, dY; tol = 1e-8)
+    # C = covariance matrix, Z'*Z for example (assumed to be of very small dimension)
+    # dY = dynamics, f(UZ') for example
+    return normal_component(LRA.U, LRA.Z, C, dY; tol = tol)
 end
 
-function step!(integrator::MatrixDataIntegrator)
-    @unpack Δy, u, left_factor, right_factor, sign = integrator
-    u .+= sign*left_factor'*Δy*right_factor
+function normal_component(LRA::TwoFactorRepresentation, dY; tol = 1e-8)
+    # C = covariance matrix, Z'*Z for example (assumed to be of very small dimension)
+    # dY = dynamics, f(UZ') for example
+    return normal_component(LRA.U, LRA.Z, LRA.Z'*LRA.Z, dY; tol = tol)
 end
 
-function set_u!(integrator::MatrixDataIntegrator, unew)
-    integrator.u .= unew
-end
-
-function update_sol!(integrator::AbstractDLRIntegrator, dt)
-    if integrator.iter <= length(integrator.sol.Y) - 1
-        integrator.sol.Y[integrator.iter + 1] = deepcopy(integrator.u)
-        integrator.sol.t[integrator.iter + 1] = integrator.t
-    else
-        push!(integrator.sol.Y, deepcopy(integrator.u))
-        push!(integrator.sol.t, integrator.t)
+# gradient descent update for truncated svd
+# This is work in progress and will be tailored to TwoFactorRepresentation input types etc. 
+#=
+function gd_truncated_svd!(U, Z, C, Ψ_U, Ψ_Z; μ=0.1, ϵ=1e-8, maxiter = 100, pinv_tol = 1e-8)
+    iter = 0
+    while iter < maxiter
+        dU = -(I-U*U')*Ψ_U*(Ψ_Z'*Z*pinv(C, atol = pinv_tol))  
+        dZ = Z - Ψ_Z*(Ψ_U'*U)
+        if norm(dU)^2 + norm(dZ)^2 < ϵ
+            break
+        end
+        U .-= μ*dU
+        Z .-= μ*dZ    
+        gd_orthonormalization!(U, Z)
+        iter += 1
+    end
+    if iter == maxiter
+        @warn "Orthonormalization did not converge. 
+               Iterations exceeded maxiters = $maxiter. 
+               Primal residual: $(norm(dU)^2+norm(dZ)^2)"
     end
 end
+
+function gd_truncated_svd!(U,Z,C,Ψ; μ=0.1, ϵ=1e-8, maxiter = 100, pinv_tol = 1e-8)
+    iter = 0
+    while iter < maxiter
+        dU = -(I-U*U')*Ψ'*Z*pinv(C, atol = pinv_tol)
+        dZ = Z - Ψ'*U
+        if norm(dU)^2 + norm(dZ)^2 < ϵ
+            break
+        end
+        U .-= μ*dU
+        Z .-= μ*dZ    
+        gd_orthonormalization!(U, Z)
+        C .= Z'*Z
+        iter += 1
+    end
+    if iter == maxiter
+        @warn "Orthonormalization did not converge. 
+               Iterations exceeded maxiters = $maxiter. 
+               Primal residual: $(norm(dU)^2+norm(dZ)^2)"
+    end
+end
+=#

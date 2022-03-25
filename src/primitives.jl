@@ -1,8 +1,6 @@
-
 abstract type AbstractDLRProblem end
 abstract type AbstractDLRSolution end
 abstract type AbstractDLRIntegrator end
-abstract type AbstractLowRankApproximation end
 abstract type AbstractDLRAlgorithm end
 abstract type AbstractDLRAlgorithm_Cache end
 
@@ -18,11 +16,8 @@ mutable struct MatrixDEProblem{uType, tType} <: AbstractDLRProblem
     tspan::Tuple{tType, tType}
 end
 
-MatrixDEProblem(f, u0, tspan) = MatrixDEProblem(f, nothing, nothing, nothing, u0, tspan)
-MatrixDEProblem(corange_projected_f, range_projected_f, core_projected_f, u0, tspan) = MatrixDEProblem(nothing, corange_projected_f, range_projected_f, core_projected_f, u0, tspan)
-
 """
-    Problem of tracking the low rank decomposition u(t) = U(t)S(t) V(t)' of a 
+    Problem of tracking the low rank decomposition u(t) = U(t)S(t) V(t)' (or U(t)Z(t)') of a 
     time-dependent (or streamed) matrix y(t) with t ∈ [t_0, t_f].
 """
 mutable struct MatrixDataProblem{uType, tType} <: AbstractDLRProblem 
@@ -32,34 +27,35 @@ mutable struct MatrixDataProblem{uType, tType} <: AbstractDLRProblem
 end
 
 """
-    Convenient type carrying the factors of a low rank approximation to Matrix.
-    In the future this should be extended to low rank tensor factorizations (as with the whole
-    package).
+    Problem of identifying optimal projection basis U(t) such that we get good reconstruction
+    y(t) = U(t) Z(t)' where dZ/dt = f(Z,U,t).
 """
-mutable struct LowRankApproximation{uType} <: AbstractLowRankApproximation
-    U::Matrix{uType}
-    S::Matrix{uType}
-    V::Matrix{uType}
+mutable struct MatrixHybridProblem{uType, tType} <: AbstractDLRProblem
+    y
+    f
+    u0::uType
+    tspan::Tuple{tType, tType}
 end
 
 """
     Solution object that tracks the evolution of a low rank approximation
 """
-mutable struct DLRSolution{uType,tType} <: AbstractDLRSolution
-    Y::Vector{LowRankApproximation{uType}}
+mutable struct DLRSolution{solType, tType} <: AbstractDLRSolution
+    Y::Vector{solType}
     t::Vector{tType}
 end
 
 """
     Integrator computing solution to a dynamic low rank approximation problem
 """
-mutable struct DLRIntegrator{uType, tType, aType, cType} <: AbstractDLRIntegrator
-    u::LowRankApproximation{uType}
+mutable struct DLRIntegrator{uType, tType, aType, cType, pType} <: AbstractDLRIntegrator
+    u::uType
     t::tType
     dt::tType
-    sol::DLRSolution{uType, tType}
+    sol::DLRSolution{uType,tType}
     alg::aType
     cache::cType
+    probType::pType
     iter::Int
 end
 
@@ -73,5 +69,15 @@ function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt)
         step!(integrator, alg, dt)
         update_sol!(integrator, dt)
     end
-    return integrator
+    return integrator.sol
+end
+
+function update_sol!(integrator::AbstractDLRIntegrator, dt)
+    if integrator.iter <= length(integrator.sol.Y) - 1
+        integrator.sol.Y[integrator.iter + 1] = deepcopy(integrator.u)
+        integrator.sol.t[integrator.iter + 1] = integrator.t
+    else
+        push!(integrator.sol.Y, deepcopy(integrator.u))
+        push!(integrator.sol.t, integrator.t)
+    end
 end
