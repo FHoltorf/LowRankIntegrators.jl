@@ -3,3 +3,8 @@
 *.jl.mem
 Manifest.toml
 /docs/build/
+readme_batches.md
+wip/
+examples/.ipynb_checkpoints
+*.mp4
+.DS_STORE
