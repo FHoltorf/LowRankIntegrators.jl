@@ -68,11 +68,13 @@ function alg_cache(prob::MatrixDEProblem, alg::PrimalLieTrotterProjectorSplittin
     tspan = (t0,t0+dt)
     
     if isnothing(alg.alg_params.K_rhs)
-        alg.alg_params.K_rhs = function (US, V, t)
-                    return prob.f(US*V',t)*V
-                end 
+        K_rhs = function (US, V, t)
+                    return Matrix(prob.f(TwoFactorRepresentation(US,V),t)*V)
+                end
+    else
+        K_rhs = alg.alg_params.K_rhs
     end
-    KProblem = ODEProblem(alg.alg_params.K_rhs, US, tspan, u.V)
+    KProblem = ODEProblem(K_rhs, US, tspan, u.V)
     KIntegrator = init(KProblem, alg.alg_params.K_alg, save_everystep=false, alg.alg_params.K_kwargs...)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
@@ -80,21 +82,25 @@ function alg_cache(prob::MatrixDEProblem, alg::PrimalLieTrotterProjectorSplittin
     u.U .= Matrix(QRK.Q) 
 
     if isnothing(alg.alg_params.S_rhs)
-        alg.alg_params.S_rhs = function (S, p, t)
-                    return -p[1]'*prob.f(p[1]*S*p[2]',t)*p[2]
+        S_rhs = function (S, (U,V), t)
+                    return Matrix(-U'*prob.f(SVDLikeRepresentation(U,S,V),t)*V)
                 end
-    end    
-    SProblem = ODEProblem(alg.alg_params.S_rhs, QRK.R, tspan, (u.U, u.V))
+    else
+        S_rhs = alg.alg_params.S_rhs
+    end
+    SProblem = ODEProblem(S_rhs, QRK.R, tspan, (u.U, u.V))
     SIntegrator = init(SProblem, alg.alg_params.S_alg, save_everystep=false, alg.alg_params.S_kwargs...)
     step!(SIntegrator, dt, true)
     VS = u.V*SIntegrator.u'
 
     if isnothing(alg.alg_params.L_rhs)
-        alg.alg_params.L_rhs = function (VS, U, t)
-                    return prob.f(U*VS',t)'*U
+        L_rhs = function (VS, U, t)
+                    return Matrix(prob.f(TwoFactorRepresentation(U,VS),t)'*U)
                 end
+    else
+        L_rhs = alg.alg_params.L_rhs
     end
-    LProblem = ODEProblem(alg.alg_params.L_rhs, VS, tspan, u.U)
+    LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
     LIntegrator = init(LProblem, alg.alg_params.L_alg, save_everystep=false, alg.alg_params.L_kwargs...)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
@@ -112,11 +118,13 @@ function alg_cache(prob::MatrixDEProblem, alg::DualLieTrotterProjectorSplitting,
     tspan = (t0,t0+dt)
     
     if isnothing(alg.alg_params.L_rhs)
-        alg.alg_params.L_rhs = function (VS, U, t)
-                    return prob.f(U*VS',t)'*U
+        L_rhs = function (VS, U, t)
+                    return Matrix(prob.f(TwoFactorRepresentation(U,VS),t)'*U)
                 end
+    else
+        L_rhs = alg.alg_params.L_rhs
     end
-    LProblem = ODEProblem(alg.alg_params.L_rhs, VS, tspan, u.U)
+    LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
     LIntegrator = init(LProblem, alg.alg_params.L_alg, save_everystep=false, alg.alg_params.L_kwargs...)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
@@ -124,21 +132,25 @@ function alg_cache(prob::MatrixDEProblem, alg::DualLieTrotterProjectorSplitting,
     u.V .= Matrix(QRL.Q)
     
     if isnothing(alg.alg_params.S_rhs)
-        alg.alg_params.S_rhs = function (S, (U,V), t)
-                    return -U'*prob.f(U*S*V',t)*V
+        S_rhs = function (S, (U,V), t)
+                    return Matrix(-U'*prob.f(SVDLikeRepresentation(U,S,V),t)*V)
                 end 
+    else
+        S_rhs = alg.alg_params.S_rhs
     end
-    SProblem = ODEProblem(alg.alg_params.S_rhs, Matrix(QRL.R'), tspan, (u.U, u.V))
+    SProblem = ODEProblem(S_rhs, Matrix(QRL.R'), tspan, (u.U, u.V))
     SIntegrator = init(SProblem, alg.alg_params.S_alg, save_everystep=false, alg.alg_params.S_kwargs...)
     step!(SIntegrator, dt, true)
     US = u.U*SIntegrator.u
 
     if isnothing(alg.alg_params.K_rhs)
-        alg.alg_params.K_rhs = function (US, V, t)
-                    return prob.f(US*V',t)*V
+        K_rhs = function (US, V, t)
+                    return Matrix(prob.f(TwoFactorRepresentation(US,V),t)*V)
                 end
+    else
+        K_rhs = alg.alg_params.K_rhs
     end
-    KProblem = ODEProblem(alg.alg_params.K_rhs, US, tspan, u.V)
+    KProblem = ODEProblem(K_rhs, US, tspan, u.V)
     KIntegrator = init(KProblem, alg.alg_params.K_alg, save_everystep=false, alg.alg_params.K_kwargs...)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
@@ -222,14 +234,20 @@ function init(prob::MatrixDataProblem, alg::algType, dt) where algType <: Union{
     return DLRIntegrator(u, t0, dt, sol, alg, cache, 0)
 end
 
-function primal_LT_step!(u, cache, t, dt)
-    @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator, y, ycurr, yprev, Δy = cache
+function primal_LT_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
+    @unpack y, ycurr, yprev, Δy = cache
+    ycurr .= y(t+dt)
+    Δy .= ycurr - yprev
+    yprev .= ycurr
+    primal_LT_step!(u, cache, t, dt)
+end
 
-    if !isnothing(y) # should be done via dispatch
-        ycurr .= y(t+dt)
-        Δy .= ycurr - yprev
-        yprev .= ycurr
-    end
+function primal_LT_step!(u, cache, t, dt, ::Type{<:MatrixDEProblem})
+    primal_LT_step!(u, cache, t, dt)
+end
+
+function primal_LT_step!(u, cache, t, dt)
+    @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator = cache
 
     # K step
     US .= u.U*u.S
@@ -253,13 +271,20 @@ function primal_LT_step!(u, cache, t, dt)
     u.S .= QRL.R'
 end
 
+function dual_LT_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
+    @unpack y, ycurr, yprev, Δy = cache
+    ycurr .= y(t+dt)
+    Δy .= ycurr - yprev
+    yprev .= ycurr
+    dual_LT_step!(u, cache, t, dt)
+end
+
+function dual_LT_step!(u, cache, t, dt, ::Type{<:MatrixDEProblem})
+    dual_LT_step!(u, cache, t, dt)
+end
+
 function dual_LT_step!(u, cache, t, dt)
-    @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator, y, ycurr, yprev, Δy = cache
-    if !isnothing(y) # should be done via dispatch
-        ycurr .= y(t+dt)
-        Δy .= ycurr - yprev
-        yprev .= ycurr
-    end
+    @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator = cache
 
     # L step
     VS .= u.V*u.S'
@@ -283,25 +308,25 @@ function dual_LT_step!(u, cache, t, dt)
     u.S .= QRK.R
 end
 
-function step!(integrator::DLRIntegrator, alg::PrimalLieTrotterProjectorSplitting, dt)
-    @unpack u, t, iter, cache = integrator
-    primal_LT_step!(u, cache, t, dt)
+function step!(integrator::DLRIntegrator, ::PrimalLieTrotterProjectorSplitting, dt)
+    @unpack u, t, iter, cache, probType = integrator
+    primal_LT_step!(u, cache, t, dt, probType)
     integrator.t += dt
     integrator.iter += 1
 end
 
-function step!(integrator::DLRIntegrator, alg::DualLieTrotterProjectorSplitting, dt)
-    @unpack u, t, iter, cache = integrator
-    dual_LT_step!(u, cache, t, dt)
+function step!(integrator::DLRIntegrator, ::DualLieTrotterProjectorSplitting, dt)
+    @unpack u, t, iter, cache, probType = integrator
+    dual_LT_step!(u, cache, t, dt, probType)
     integrator.t += dt
     integrator.iter += 1
 end
 
-function step!(integrator::DLRIntegrator, alg::StrangProjectorSplitting, dt)
-    @unpack u, t, iter, cache = integrator
+function step!(integrator::DLRIntegrator, ::StrangProjectorSplitting, dt)
+    @unpack u, t, iter, cache, probType = integrator
     @unpack primal_cache, dual_cache = cache
-    primal_LT_step!(u, primal_cache, t, dt/2)
-    dual_LT_step!(u, dual_cache, t + dt/2, dt/2)
+    primal_LT_step!(u, primal_cache, t, dt/2, probType)
+    dual_LT_step!(u, dual_cache, t + dt/2, dt/2, probType)
     integrator.t += dt
     integrator.iter += 1
 end

@@ -41,11 +41,13 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     US = u.U*u.S
     tspan = (t0,t0+dt)
     if isnothing(alg.alg_params.K_rhs)
-        alg.alg_params.K_rhs = function (US, V, t)
-                    return prob.f(US*V',t)*V
+        K_rhs = function (US, V, t)
+                    return Matrix(prob.f(TwoFactorRepresentation(US,V),t)*V)
                 end 
+    else
+        K_rhs = alg.alg_params.K_rhs
     end
-    KProblem = ODEProblem(alg.alg_params.K_rhs, US, tspan, u.V)
+    KProblem = ODEProblem(K_rhs, US, tspan, u.V)
     KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
@@ -53,12 +55,14 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     M = Matrix(QRK.Q)'*u.U
     
     if isnothing(alg.alg_params.L_rhs)
-        alg.alg_params.L_rhs = function (VS, U, t)
-                    return prob.f(U*VS',t)'*U
+        L_rhs = function (VS, U, t)
+                    return Matrix(prob.f(TwoFactorRepresentation(U,VS),t)'*U)
                 end
+    else
+        L_rhs = alg.alg_params.L_rhs
     end
     VS = u.V*u.S'
-    LProblem = ODEProblem(alg.alg_params.L_rhs, VS, tspan, u.U)
+    LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
     LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
@@ -69,11 +73,13 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     u.U .= Matrix(QRK.Q)
     
     if isnothing(alg.alg_params.S_rhs)
-        alg.alg_params.S_rhs = function (S, p, t)
-                    return p[1]'*prob.f(p[1]*S*p[2]',t)*p[2]
+        S_rhs = function (S, (U,V), t)
+                    return Matrix(U'*prob.f(SVDLikeRepresentation(U,S,V),t)*V)
                 end
+    else
+        S_rhs = alg.alg_params.S_rhs
     end
-    SProblem = ODEProblem(alg.alg_params.S_rhs, M*u.S*N', tspan, (u.U, u.V))
+    SProblem = ODEProblem(S_rhs, M*u.S*N', tspan, (u.U, u.V))
     SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
     step!(SIntegrator, dt, true)
     u.S .= SIntegrator.u
@@ -123,7 +129,7 @@ function init(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, dt)
     # initialize cache
     cache = alg_cache(prob, alg, u, dt)
     sol.Y[2] = deepcopy(u) # add first step to solution object
-    return DLRIntegrator(u, t0+dt, dt, sol, alg, cache, 1)   
+    return DLRIntegrator(u, t0+dt, dt, sol, alg, cache, typeof(prob), 1)   
 end
 
 function init(prob::MatrixDataProblem, alg::UnconventionalAlgorithm, dt)
@@ -139,44 +145,50 @@ function init(prob::MatrixDataProblem, alg::UnconventionalAlgorithm, dt)
     # initialize cache
     cache = alg_cache(prob, alg, u, dt)
     sol.Y[1] = deepcopy(prob.u0)
-    return DLRIntegrator(u, t0, dt, sol, alg, cache, 0)
+    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)
+end
+
+function unconventional_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
+    @unpack y, ycurr, yprev, Δy = cache
+    ycurr .= y(t+dt)
+    Δy .= ycurr - yprev
+    yprev .= ycurr
+    unconventional_step!(u, cache, t, dt)
+end
+
+function unconventional_step!(u, cache, t, dt, ::Type{<:MatrixDEProblem})
+    unconventional_step!(u, cache, t, dt)
 end
 
 function unconventional_step!(u, cache, t, dt)
-    @unpack US, VS, M, N, QRK, QRL, KIntegrator, LIntegrator, SIntegrator, y, ycurr, yprev, Δy = cache
+    @unpack US, VS, M, N, QRK, QRL, KIntegrator, LIntegrator, SIntegrator = cache
     
-    if !isnothing(y)
-        ycurr .= y(t+dt)
-        Δy .= ycurr - yprev
-        yprev .= ycurr
-    end
-
     # K step
-    US .= u.U*u.S
+    mul!(US, u.U, u.S)
     set_u!(KIntegrator, US)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
     QRK = qr!(US)
-    M .= Matrix(QRK.Q)'*u.U
+    mul!(M, Matrix(QRK.Q)', u.U)
     
     # L step
-    VS .= u.V*u.S'
+    mul!(VS, u.V, u.S')
     set_u!(LIntegrator, VS)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
     QRL = qr!(VS)
-    N .= Matrix(QRL.Q)'*u.V
+    mul!(N,Matrix(QRL.Q)',u.V)
     u.V .= Matrix(QRL.Q)
     u.U .= Matrix(QRK.Q)
     
-    set_u!(SIntegrator, M*u.S*N')
+    set_u!(SIntegrator, M*u.S*N') # add cache for initial condition? -> prolly should do
     step!(SIntegrator, dt, true)
     u.S .= SIntegrator.u
 end
 
-function step!(integrator::DLRIntegrator, alg::UnconventionalAlgorithm, dt)
-    @unpack u, t, iter, cache = integrator
-    unconventional_step!(u, cache, t, dt)
+function step!(integrator::DLRIntegrator, ::UnconventionalAlgorithm, dt)
+    @unpack u, t, iter, cache, probType = integrator
+    unconventional_step!(u, cache, t, dt, probType)
     integrator.t += dt
     integrator.iter += 1
 end

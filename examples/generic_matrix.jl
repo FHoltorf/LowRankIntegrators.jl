@@ -1,4 +1,4 @@
-using LowRankIntegrators, DifferentialEquations, LinearAlgebra, Plots
+using LowRankIntegrators, Plots
 N = 100
 Ws = []
 for k in 1:2
@@ -18,22 +18,20 @@ Y0 = Y(0.0)
 Yf = Y(1.0)
 
 # initialization of low rank approximation based on the SVD
-U, Σ, V = svd(Y0)
-
 r_range = [4,8,16]
 dt_range = [0.1,0.05,0.01,0.005,0.0001]
-tol = 0.05 # needed for rank adaptation
+tol = 1e-8 # needed for rank adaptation
 S_kwargs, K_kwargs, L_kwargs = Dict(:dt => 0.001), Dict(:dt => 0.001), Dict(:dt => 0.001)
 alg = Euler()
-solvers = [PrimalLieTrotterProjectorSplitting(), StrangProjectorSplitting(), UnconventionalAlgorithm()]#, RankAdaptiveUnconventionalAlgorithm(tol)]
+solvers = [PrimalLieTrotterProjectorSplitting(), StrangProjectorSplitting(), UnconventionalAlgorithm(), RankAdaptiveUnconventionalAlgorithm(tol, r_max = 20)]
 error = Dict()
 for r in r_range
-    X0 = SVDLikeApproximation(U[:,1:r], Matrix(Diagonal(Σ[1:r])), V[:, 1:r])
+    X0 = truncated_svd(Y0, r)
     prob = MatrixDataProblem(Y, X0, (0.0, 1.0))
     for dt in dt_range
         for solver in solvers
-            integrator = LowRankIntegrators.solve(prob, solver, dt)
-            error[(r,dt,solver)] = norm(Matrix(integrator.sol.Y[end]) - Yf)
+            sol = LowRankIntegrators.solve(prob, solver, dt)
+            error[(r,dt,solver)] = norm(Matrix(sol.Y[end]) - Yf)
         end
     end
 end
@@ -41,16 +39,17 @@ end
 # visualization of data
 solver_names = Dict(solvers[1] => "Lie Trotter Projector Splitting", 
                     solvers[2] => "Strang Projector Splitting",
-                    solvers[3] => "Unconventional Algorithm")
-error_comparison = plot(yscale = :log, xscale = :log, xlabel = "step size", ylabel = "error", legend = false)
+                    solvers[3] => "Unconventional Algorithm",
+                    solvers[4] => "Rank Adaptive Unconventional Algorithm")
+error_comparison = plot(yscale = :log, xscale = :log, xlabel = "step size", ylabel = "error", legend = :bottomleft)
 
-colors = Dict(solvers[1] => :blue, solvers[2] => :red, solvers[3] => :green)
+colors = Dict(solvers[1] => :blue, solvers[2] => :red, solvers[3] => :green, solvers[4] => :dodgerblue)
 marker_range = [:v, :hex, :o, :star, :cross, :^]
 markers = Dict(r_range[k] => marker_range[k] for k in 1:length(r_range))
 for r in r_range
     for solver in solvers
         try 
-            plot!(error_comparison, dt_range, [error[(r, dt, solver)] for dt in dt_range], label = solver_names[solver], linestyle=:dash, marker=markers[r], color = colors[solver])
+            plot!(error_comparison, dt_range, [error[(r, dt, solver)] for dt in dt_range], label = (r == r_range[1] ? solver_names[solver] : nothing), linestyle=:dash, marker=markers[r], color = colors[solver])
         catch
             continue
         end

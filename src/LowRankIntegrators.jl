@@ -1,18 +1,14 @@
 module LowRankIntegrators
-
-using LinearAlgebra, DifferentialEquations, UnPack
+using Reexport, UnPack
 import DifferentialEquations: step!, set_u!, init
 
-include("low_rank_algebra.jl")
-export SVDLikeApproximation, TwoFactorApproximation, 
-       Matrix, rank, size, *, +, -,
-       elprod, elpow, add_to_cols, add_to_rows, add_scalar
+@reexport using LinearAlgebra, DifferentialEquations, LowRankArithmetic
 
 include("utils.jl")
-export orthonormalize!, GradientDescent, QR, SVD
+export orthonormalize!, GradientDescent, QR, SVD, SecondMomentMatching, normal_component
 
 include("primitives.jl")
-export MatrixDEProblem, MatrixDataProblem, 
+export MatrixDEProblem, MatrixDataProblem, MatrixHybridProblem
        DLRIntegrator, DLRSolution, 
        solve
 
@@ -21,7 +17,9 @@ export PrimalLieTrotterProjectorSplitting,
        DualLieTrotterProjectorSplitting, 
        StrangProjectorSplitting, 
        UnconventionalAlgorithm,
+       RankAdaptiveUnconventionalAlgorithm,
        DOAlgorithm, DirectTimeMarching,
        RankAdaptiveUnconventionalAlgorithm,
+       GreedyIntegrator,
        step!, init 
 end

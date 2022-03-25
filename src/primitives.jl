@@ -1,4 +1,3 @@
-
 abstract type AbstractDLRProblem end
 abstract type AbstractDLRSolution end
 abstract type AbstractDLRIntegrator end
@@ -17,15 +16,23 @@ mutable struct MatrixDEProblem{uType, tType} <: AbstractDLRProblem
     tspan::Tuple{tType, tType}
 end
 
-MatrixDEProblem(f, u0, tspan) = MatrixDEProblem(f, nothing, nothing, nothing, u0, tspan)
-MatrixDEProblem(corange_projected_f, range_projected_f, core_projected_f, u0, tspan) = MatrixDEProblem(nothing, corange_projected_f, range_projected_f, core_projected_f, u0, tspan)
-
 """
-    Problem of tracking the low rank decomposition u(t) = U(t)S(t) V(t)' of a 
+    Problem of tracking the low rank decomposition u(t) = U(t)S(t) V(t)' (or U(t)Z(t)') of a 
     time-dependent (or streamed) matrix y(t) with t ∈ [t_0, t_f].
 """
 mutable struct MatrixDataProblem{uType, tType} <: AbstractDLRProblem 
     y
+    u0::uType
+    tspan::Tuple{tType, tType}
+end
+
+"""
+    Problem of identifying optimal projection basis U(t) such that we get good reconstruction
+    y(t) = U(t) Z(t)' where dZ/dt = f(Z,U,t).
+"""
+mutable struct MatrixHybridProblem{uType, tType} <: AbstractDLRProblem
+    y
+    f
     u0::uType
     tspan::Tuple{tType, tType}
 end
@@ -41,13 +48,14 @@ end
 """
     Integrator computing solution to a dynamic low rank approximation problem
 """
-mutable struct DLRIntegrator{uType, tType, aType, cType} <: AbstractDLRIntegrator
+mutable struct DLRIntegrator{uType, tType, aType, cType, pType} <: AbstractDLRIntegrator
     u::uType
     t::tType
     dt::tType
     sol::DLRSolution{uType,tType}
     alg::aType
     cache::cType
+    probType::pType
     iter::Int
 end
 
@@ -60,9 +68,8 @@ function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt)
     while (prob.tspan[2]-integrator.t)/T > 1e-8 # robust to round-off-errors but need to find something actually rigorous? Maybe for loop with N = round(T/dt)? That won't work well with adaptive time stepping in the future.
         step!(integrator, alg, dt)
         update_sol!(integrator, dt)
-        println(integrator.t)
     end
-    return integrator
+    return integrator.sol
 end
 
 function update_sol!(integrator::AbstractDLRIntegrator, dt)
