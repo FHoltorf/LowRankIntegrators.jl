@@ -36,10 +36,18 @@ struct UnconventionalAlgorithm_Cache{uType,SIntegratorType,LIntegratorType,KInte
     Δy::yType
 end
 
-function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t0 = prob.tspan[1])
-    # the fist integration step is used to allocate memory for frequently accessed arrays
-    US = u.U*u.S
+function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt; t0 = prob.tspan[1])
+    # allocate memory for frequently accessed arrays
     tspan = (t0,t0+dt)
+
+    US = u.U*u.S
+    QRK = qr(US)
+    M = Matrix(QRK.Q)'*u.U
+    
+    VS = u.V*u.S'
+    QRL = qr(VS)
+    N = Matrix(QRL.Q)'*u.V
+    
     if isnothing(alg.alg_params.K_rhs)
         K_rhs = function (US, V, t)
                     return Matrix(prob.f(TwoFactorRepresentation(US,V),t)*V)
@@ -49,10 +57,6 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     end
     KProblem = ODEProblem(K_rhs, US, tspan, u.V)
     KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
-    step!(KIntegrator, dt, true)
-    US .= KIntegrator.u
-    QRK = qr!(US)
-    M = Matrix(QRK.Q)'*u.U
     
     if isnothing(alg.alg_params.L_rhs)
         L_rhs = function (VS, U, t)
@@ -61,16 +65,8 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     else
         L_rhs = alg.alg_params.L_rhs
     end
-    VS = u.V*u.S'
     LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
     LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
-    step!(LIntegrator, dt, true)
-    VS .= LIntegrator.u
-    QRL = qr!(VS)
-    N = Matrix(QRL.Q)'*u.V
-    
-    u.V .= Matrix(QRL.Q)
-    u.U .= Matrix(QRK.Q)
     
     if isnothing(alg.alg_params.S_rhs)
         S_rhs = function (S, (U,V), t)
@@ -81,58 +77,35 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt, t
     end
     SProblem = ODEProblem(S_rhs, M*u.S*N', tspan, (u.U, u.V))
     SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
-    step!(SIntegrator, dt, true)
-    u.S .= SIntegrator.u
+    
     return UnconventionalAlgorithm_Cache(US, VS, M, N, QRK, QRL, 
                                          SIntegrator, LIntegrator, KIntegrator,
                                          nothing, nothing, nothing, nothing)
 end
 
-function alg_cache(prob::MatrixDataProblem, alg::UnconventionalAlgorithm,u,dt)
-    # creates caches for frequently used arrays by performing the first time step
-    @unpack y = prob
-    t0 = prob.tspan[1]
+function alg_cache(prob::MatrixDataProblem, alg::UnconventionalAlgorithm,u,dt; t0 = prob.tspan[1])
     n, r = size(u.U)
     m = size(u.V, 1)
 
-    yprev = y(t0)
+    yprev = prob.y(t0)
     ycurr = deepcopy(yprev)
     Δy = similar(yprev)
     US = zeros(eltype(u.U),n,r)
-    KIntegrator = MatrixDataIntegrator(Δy, US, I, u.V, 1)
     QRK = qr(US)     
     M = zeros(eltype(u.U),r,r)
-
     VS = zeros(eltype(u.V), m, r)
-    LIntegrator = MatrixDataIntegrator(Δy', VS, I, u.U, 1)
     QRL = qr(VS)
     N = zeros(eltype(u.U),r,r)
-
+    KIntegrator = MatrixDataIntegrator(Δy, US, I, u.V, 1)
+    LIntegrator = MatrixDataIntegrator(Δy', VS, I, u.U, 1)   
     SIntegrator = MatrixDataIntegrator(Δy, M*u.S*N', u.U, u.V, 1)
 
     return UnconventionalAlgorithm_Cache(US, VS, M, N, QRK, QRL, 
                                          SIntegrator, LIntegrator, KIntegrator,
-                                         y, ycurr, yprev, Δy)
+                                         prob.y, ycurr, yprev, Δy)
 end
 
-function init(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, dt)
-    t0, tf = prob.tspan
-    u = deepcopy(prob.u0)
-    @assert tf > t0 "Integration in reverse time direction is not supported"
-    # number of steps
-    n = floor(Int,(tf-t0)/dt) + 1 
-    # compute more sensible dt # rest will be handled via interpolation/save_at
-    dt = (tf-t0)/(n-1)
-    # initialize solution object
-    sol = DLRSolution(Vector{typeof(prob.u0)}(undef, n), collect(range(t0, tf, length=n)))
-    sol.Y[1] = deepcopy(prob.u0) # add initial point to solution object
-    # initialize cache
-    cache = alg_cache(prob, alg, u, dt)
-    sol.Y[2] = deepcopy(u) # add first step to solution object
-    return DLRIntegrator(u, t0+dt, dt, sol, alg, cache, typeof(prob), 1)   
-end
-
-function init(prob::MatrixDataProblem, alg::UnconventionalAlgorithm, dt)
+function init(prob::AbstractDLRProblem, alg::UnconventionalAlgorithm, dt)
     t0, tf = prob.tspan
     @assert tf > t0 "Integration in reverse time direction is not supported"
     u = deepcopy(prob.u0)
@@ -143,9 +116,9 @@ function init(prob::MatrixDataProblem, alg::UnconventionalAlgorithm, dt)
     # initialize solution object
     sol = DLRSolution(Vector{typeof(prob.u0)}(undef, n), collect(range(t0, tf, length=n)))
     # initialize cache
-    cache = alg_cache(prob, alg, u, dt)
-    sol.Y[1] = deepcopy(prob.u0)
-    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)
+    cache = alg_cache(prob, alg, u, dt, t0 = t0)
+    sol.Y[1] = deepcopy(prob.u0) 
+    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)   
 end
 
 function unconventional_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
@@ -181,7 +154,7 @@ function unconventional_step!(u, cache, t, dt)
     u.V .= Matrix(QRL.Q)
     u.U .= Matrix(QRK.Q)
     
-    set_u!(SIntegrator, M*u.S*N') # add cache for initial condition? -> prolly should do
+    set_u!(SIntegrator, M*u.S*N')
     step!(SIntegrator, dt, true)
     u.S .= SIntegrator.u
 end
