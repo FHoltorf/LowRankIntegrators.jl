@@ -10,8 +10,8 @@ abstract type AbstractDLRAlgorithm_Cache end
     y(t) ≈ u(t) = U(t)S(t)V(t)' where U(t) and V(t) are orthonormal bases approximating 
     range and co-range of y(t). 
 """
-mutable struct MatrixDEProblem{uType, tType} <: AbstractDLRProblem 
-    f
+mutable struct MatrixDEProblem{fType, uType, tType} <: AbstractDLRProblem 
+    f::fType
     u0::uType
     tspan::Tuple{tType, tType}
 end
@@ -20,8 +20,8 @@ end
     Problem of tracking the low rank decomposition u(t) = U(t)S(t) V(t)' (or U(t)Z(t)') of a 
     time-dependent (or streamed) matrix y(t) with t ∈ [t_0, t_f].
 """
-mutable struct MatrixDataProblem{uType, tType} <: AbstractDLRProblem 
-    y
+mutable struct MatrixDataProblem{yType, uType, tType} <: AbstractDLRProblem 
+    y::yType
     u0::uType
     tspan::Tuple{tType, tType}
 end
@@ -30,9 +30,9 @@ end
     Problem of identifying optimal projection basis U(t) such that we get good reconstruction
     y(t) = U(t) Z(t)' where dZ/dt = f(Z,U,t).
 """
-mutable struct MatrixHybridProblem{uType, tType} <: AbstractDLRProblem
-    y
-    f
+mutable struct MatrixHybridProblem{yType, fType, uType, tType} <: AbstractDLRProblem
+    y::yType
+    f::fType
     u0::uType
     tspan::Tuple{tType, tType}
 end
@@ -65,14 +65,14 @@ end
 function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt)
     integrator = init(prob, alg, dt)
     T = prob.tspan[2] - prob.tspan[1]
-    while (prob.tspan[2]-integrator.t)/T > 1e-8 # robust to round-off-errors but need to find something actually rigorous? Maybe for loop with N = round(T/dt)? That won't work well with adaptive time stepping in the future.
+    while (prob.tspan[2]-integrator.t)/T > 1e-8 
         step!(integrator, alg, dt)
-        update_sol!(integrator, dt)
+        update_sol!(integrator)
     end
     return integrator.sol
 end
 
-function update_sol!(integrator::AbstractDLRIntegrator, dt)
+function update_sol!(integrator::AbstractDLRIntegrator)
     if integrator.iter <= length(integrator.sol.Y) - 1
         integrator.sol.Y[integrator.iter + 1] = deepcopy(integrator.u)
         integrator.sol.t[integrator.iter + 1] = integrator.t
