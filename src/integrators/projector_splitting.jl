@@ -10,7 +10,7 @@ struct LieTrotterProjectorSplitting_Params{sType, lType, kType}
     K_alg::kType
 end
 
-struct LieTrotterProjectorSplitting_Cache{uType,SIntegratorType,LIntegratorType,KIntegratorType,yType} <: AbstractDLRAlgorithm_Cache
+struct ProjectorSplitting_Cache{uType,SIntegratorType,LIntegratorType,KIntegratorType,yType} <: AbstractDLRAlgorithm_Cache
     US::Matrix{uType}
     VS::Matrix{uType}
     QRK::LinearAlgebra.QRCompactWY{uType, Matrix{uType}}
@@ -50,6 +50,7 @@ end
 struct StrangProjectorSplitting{sType, lType, kType} <: AbstractDLRAlgorithm
     alg_params::LieTrotterProjectorSplitting_Params{sType, lType, kType}
 end
+
 function StrangProjectorSplitting(;S_rhs = nothing, L_rhs = nothing, K_rhs = nothing,
                                    S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
                                    S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5())
@@ -57,15 +58,16 @@ function StrangProjectorSplitting(;S_rhs = nothing, L_rhs = nothing, K_rhs = not
     return StrangProjectorSplitting(params)          
 end
 
-struct StrangProjectorSplitting_Cache <: AbstractDLRAlgorithm_Cache
-    primal_cache::LieTrotterProjectorSplitting_Cache
-    dual_cache::LieTrotterProjectorSplitting_Cache
-end
-
-function alg_cache(prob::MatrixDEProblem, alg::PrimalLieTrotterProjectorSplitting, u, dt, t0 = prob.tspan[1])
-    # the fist integration step is used to allocate memory for frequently accessed arrays
-    US = u.U*u.S
+function alg_cache(prob::MatrixDEProblem, alg::algType, u, dt; t0 = prob.tspan[1]) where algType <: Union{PrimalLieTrotterProjectorSplitting,
+                                                                                                          DualLieTrotterProjectorSplitting,
+                                                                                                          StrangProjectorSplitting}
+    # allocate memory for frequently accessed arrays
     tspan = (t0,t0+dt)
+
+    US = u.U*u.S
+    VS = u.V*u.S'
+    QRK = qr(US)
+    QRL = qr(VS)
     
     if isnothing(alg.alg_params.K_rhs)
         K_rhs = function (US, V, t)
@@ -76,11 +78,7 @@ function alg_cache(prob::MatrixDEProblem, alg::PrimalLieTrotterProjectorSplittin
     end
     KProblem = ODEProblem(K_rhs, US, tspan, u.V)
     KIntegrator = init(KProblem, alg.alg_params.K_alg, save_everystep=false, alg.alg_params.K_kwargs...)
-    step!(KIntegrator, dt, true)
-    US .= KIntegrator.u
-    QRK = qr!(US)
-    u.U .= Matrix(QRK.Q) 
-
+    
     if isnothing(alg.alg_params.S_rhs)
         S_rhs = function (S, (U,V), t)
                     return Matrix(-U'*prob.f(SVDLikeRepresentation(U,S,V),t)*V)
@@ -90,8 +88,6 @@ function alg_cache(prob::MatrixDEProblem, alg::PrimalLieTrotterProjectorSplittin
     end
     SProblem = ODEProblem(S_rhs, QRK.R, tspan, (u.U, u.V))
     SIntegrator = init(SProblem, alg.alg_params.S_alg, save_everystep=false, alg.alg_params.S_kwargs...)
-    step!(SIntegrator, dt, true)
-    VS = u.V*SIntegrator.u'
 
     if isnothing(alg.alg_params.L_rhs)
         L_rhs = function (VS, U, t)
@@ -102,136 +98,48 @@ function alg_cache(prob::MatrixDEProblem, alg::PrimalLieTrotterProjectorSplittin
     end
     LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
     LIntegrator = init(LProblem, alg.alg_params.L_alg, save_everystep=false, alg.alg_params.L_kwargs...)
-    step!(LIntegrator, dt, true)
-    VS .= LIntegrator.u
-    QRL = qr!(VS)
-    u.V .= Matrix(QRL.Q)
-    u.S .= QRL.R'
-    return LieTrotterProjectorSplitting_Cache(US, VS, QRK, QRL, 
-                                              SIntegrator, LIntegrator, KIntegrator,
-                                              nothing, nothing, nothing, nothing)
-end
-
-function alg_cache(prob::MatrixDEProblem, alg::DualLieTrotterProjectorSplitting, u, dt, t0 = prob.tspan[1])
-    # the fist integration step is used to allocate memory for frequently accessed arrays
-    VS = u.V*u.S'
-    tspan = (t0,t0+dt)
     
-    if isnothing(alg.alg_params.L_rhs)
-        L_rhs = function (VS, U, t)
-                    return Matrix(prob.f(TwoFactorRepresentation(U,VS),t)'*U)
-                end
-    else
-        L_rhs = alg.alg_params.L_rhs
-    end
-    LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
-    LIntegrator = init(LProblem, alg.alg_params.L_alg, save_everystep=false, alg.alg_params.L_kwargs...)
-    step!(LIntegrator, dt, true)
-    VS .= LIntegrator.u
-    QRL = qr!(VS)
-    u.V .= Matrix(QRL.Q)
-    
-    if isnothing(alg.alg_params.S_rhs)
-        S_rhs = function (S, (U,V), t)
-                    return Matrix(-U'*prob.f(SVDLikeRepresentation(U,S,V),t)*V)
-                end 
-    else
-        S_rhs = alg.alg_params.S_rhs
-    end
-    SProblem = ODEProblem(S_rhs, Matrix(QRL.R'), tspan, (u.U, u.V))
-    SIntegrator = init(SProblem, alg.alg_params.S_alg, save_everystep=false, alg.alg_params.S_kwargs...)
-    step!(SIntegrator, dt, true)
-    US = u.U*SIntegrator.u
-
-    if isnothing(alg.alg_params.K_rhs)
-        K_rhs = function (US, V, t)
-                    return Matrix(prob.f(TwoFactorRepresentation(US,V),t)*V)
-                end
-    else
-        K_rhs = alg.alg_params.K_rhs
-    end
-    KProblem = ODEProblem(K_rhs, US, tspan, u.V)
-    KIntegrator = init(KProblem, alg.alg_params.K_alg, save_everystep=false, alg.alg_params.K_kwargs...)
-    step!(KIntegrator, dt, true)
-    US .= KIntegrator.u
-    QRK = qr!(US)
-    u.U .= Matrix(QRK.Q) 
-    u.S .= QRK.R
-
-    return LieTrotterProjectorSplitting_Cache(US, VS, QRK, QRL, 
-                                              SIntegrator, LIntegrator, KIntegrator,
-                                              nothing, nothing, nothing, nothing)
+    return ProjectorSplitting_Cache(US, VS, QRK, QRL, 
+                                    SIntegrator, LIntegrator, KIntegrator,
+                                    nothing, nothing, nothing, nothing)
 end
 
-function alg_cache(prob::MatrixDEProblem, alg::StrangProjectorSplitting, u, dt)
-    primal_cache = alg_cache(prob, PrimalLieTrotterProjectorSplitting(alg.alg_params), u, dt/2)
-    dual_cache = alg_cache(prob, DualLieTrotterProjectorSplitting(alg.alg_params), u, dt/2, prob.tspan[1] + dt/2)
-    return StrangProjectorSplitting_Cache(primal_cache, dual_cache)
-end
-
-function alg_cache(prob::MatrixDataProblem, alg::algType,u,dt) where algType <: Union{PrimalLieTrotterProjectorSplitting, DualLieTrotterProjectorSplitting}
+function alg_cache(prob::MatrixDataProblem, alg::algType, u, dt; t0 = prob.tspan[1]) where algType <: Union{PrimalLieTrotterProjectorSplitting, 
+                                                                                                            DualLieTrotterProjectorSplitting, 
+                                                                                                            StrangProjectorSplitting}
     # creates caches for frequently used arrays by performing the first time step
-    @unpack y = prob
-    t0 = prob.tspan[1]
-
-    yprev = y(t0)
+    yprev = prob.y(t0)
     ycurr = deepcopy(yprev)
     Δy = similar(yprev)
+    VS = u.V*u.S'
     US = u.U*u.S
-    KIntegrator = MatrixDataIntegrator(Δy, US, I, u.V, 1)
     QRK = qr(US)     
-    
-    SIntegrator = MatrixDataIntegrator(Δy, QRK.R, u.U, u.V, -1)
-    VS = u.V*SIntegrator.u'
-
-    LIntegrator = MatrixDataIntegrator(Δy', VS, I, u.U, 1)
     QRL = qr(VS)
-    return LieTrotterProjectorSplitting_Cache(US, VS, QRK, QRL, 
-                                              SIntegrator, LIntegrator, KIntegrator,
-                                              y, ycurr, yprev, Δy)
+    KIntegrator = MatrixDataIntegrator(Δy, US, I, u.V, 1)
+    SIntegrator = MatrixDataIntegrator(Δy, QRK.R, u.U, u.V, -1)
+    LIntegrator = MatrixDataIntegrator(Δy', VS, I, u.U, 1)
+    
+    return ProjectorSplitting_Cache(US, VS, QRK, QRL, 
+                                    SIntegrator, LIntegrator, KIntegrator,
+                                    prob.y, ycurr, yprev, Δy)
 end
 
-function alg_cache(prob::MatrixDataProblem, alg::StrangProjectorSplitting, u, dt)
-    primal_cache = alg_cache(prob, PrimalLieTrotterProjectorSplitting(alg.alg_params), u, dt/2)
-    dual_cache = alg_cache(prob, DualLieTrotterProjectorSplitting(alg.alg_params), u, dt/2)
-    return StrangProjectorSplitting_Cache(primal_cache, dual_cache)
-end
-
-function init(prob::MatrixDEProblem, alg::algType, dt) where algType <: Union{StrangProjectorSplitting, 
-                                                                              PrimalLieTrotterProjectorSplitting, 
-                                                                              DualLieTrotterProjectorSplitting}
+function init(prob::AbstractDLRProblem, alg::algType, dt) where algType <: Union{StrangProjectorSplitting, 
+                                                                                 PrimalLieTrotterProjectorSplitting, 
+                                                                                 DualLieTrotterProjectorSplitting}
     t0, tf = prob.tspan
-    u = deepcopy(prob.u0)
     @assert tf > t0 "Integration in reverse time direction is not supported"
+    u = deepcopy(prob.u0)
     # number of steps
     n = floor(Int,(tf-t0)/dt) + 1 
     # compute more sensible dt # rest will be handled via interpolation/save_at
     dt = (tf-t0)/(n-1)
     # initialize solution object
     sol = DLRSolution(Vector{typeof(prob.u0)}(undef, n), collect(range(t0, tf, length=n)))
+    # initialize cache
+    cache = alg_cache(prob, alg, u, dt, t0 = t0)
     sol.Y[1] = deepcopy(prob.u0) # add initial point to solution object
-    # initialize cache
-    cache = alg_cache(prob, alg, u, dt)
-    sol.Y[2] = deepcopy(u) # add first step to solution object
-    return DLRIntegrator(u, t0+dt, dt, sol, alg, cache, 1)   
-end
-
-function init(prob::MatrixDataProblem, alg::algType, dt) where algType <: Union{StrangProjectorSplitting,
-                                                                                PrimalLieTrotterProjectorSplitting, 
-                                                                                DualLieTrotterProjectorSplitting}
-    t0, tf = prob.tspan
-    @assert tf > t0 "Integration in reverse time direction is not supported"
-    u = deepcopy(prob.u0)
-    # number of steps
-    n = floor(Int,(tf-t0)/dt) + 1 
-    # compute more sensible dt # rest will be handled via interpolation/save_at
-    dt = (tf-t0)/(n-1)
-    # initialize solution object
-    sol = DLRSolution(Vector{typeof(prob.u0)}(undef, n), collect(range(t0, tf, length=n)))
-    # initialize cache
-    cache = alg_cache(prob, alg, u, dt)
-    sol.Y[1] = deepcopy(prob.u0)
-    return DLRIntegrator(u, t0, dt, sol, alg, cache, 0)
+    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)   
 end
 
 function primal_LT_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
@@ -250,7 +158,7 @@ function primal_LT_step!(u, cache, t, dt)
     @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator = cache
 
     # K step
-    US .= u.U*u.S
+    mul!(US,u.U,u.S)
     set_u!(KIntegrator, US)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
@@ -262,7 +170,7 @@ function primal_LT_step!(u, cache, t, dt)
     step!(SIntegrator, dt, true)
     
     # L step
-    VS .= u.V*SIntegrator.u'
+    mul!(VS,u.V,SIntegrator.u')
     set_u!(LIntegrator, VS)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
@@ -287,7 +195,7 @@ function dual_LT_step!(u, cache, t, dt)
     @unpack US, VS, QRK, QRL, KIntegrator, SIntegrator, LIntegrator = cache
 
     # L step
-    VS .= u.V*u.S'
+    mul!(VS,u.V,u.S')
     set_u!(LIntegrator, VS)
     step!(LIntegrator, dt, true)
     VS .= LIntegrator.u
@@ -299,7 +207,7 @@ function dual_LT_step!(u, cache, t, dt)
     step!(SIntegrator, dt, true)
     
     # K step
-    US .= u.U*SIntegrator.u
+    mul!(US,u.U,SIntegrator.u)
     set_u!(KIntegrator, US)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
@@ -324,9 +232,8 @@ end
 
 function step!(integrator::DLRIntegrator, ::StrangProjectorSplitting, dt)
     @unpack u, t, iter, cache, probType = integrator
-    @unpack primal_cache, dual_cache = cache
-    primal_LT_step!(u, primal_cache, t, dt/2, probType)
-    dual_LT_step!(u, dual_cache, t + dt/2, dt/2, probType)
+    primal_LT_step!(u, cache, t, dt/2, probType)
+    dual_LT_step!(u, cache, t + dt/2, dt/2, probType)
     integrator.t += dt
     integrator.iter += 1
 end
