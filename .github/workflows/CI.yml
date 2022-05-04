@@ -19,7 +19,7 @@ jobs:
       matrix:
         version:
           - '1.6'
-          - 'nightly'
+          #- 'nightly' avoid for now 
         os:
           - ubuntu-latest
         arch:
