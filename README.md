@@ -5,6 +5,9 @@
 
 This is a package for low-rank integration in Julia. Currently, it implements Lie-Trotter and Strang splitting based algorithms as proposed in [1] as well as the "unconventional integrator" proposed in [2]. Future work will include a rank-adaptive version of the unconventional integrator as described in [3]. The selection of algorithms was made to support only those that are robust to the presence of small singular values [4]. 
 
+## Acknowledgments
+This work is supported by NSF Award PHY-2028125 "SWQU: Composable Next Generation Software Framework for Space Weather Data Assimilation and Uncertainty Quantification"
+
 ## References
 [1] Lubich, Christian, and Ivan V. Oseledets. "A projector-splitting integrator for dynamical low-rank approximation." BIT Numerical Mathematics 54.1 (2014): 171-188.
 
