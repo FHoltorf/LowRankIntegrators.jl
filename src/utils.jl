@@ -19,47 +19,45 @@ function normal_component(LRA::TwoFactorRepresentation, dY; tol = 1e-8)
     return normal_component(LRA.U, LRA.Z, LRA.Z'*LRA.Z, dY; tol = tol)
 end
 
-# gradient descent update for truncated svd
-# This is work in progress and will be tailored to TwoFactorRepresentation input types etc. 
-#=
-function gd_truncated_svd!(U, Z, C, Ψ_U, Ψ_Z; μ=0.1, ϵ=1e-8, maxiter = 100, pinv_tol = 1e-8)
+function gd_truncated_svd!(Φ::TwoFactorRepresentation, Ψ::TwoFactorRepresentation, alg::GradientDescent, orth_alg)
+    #UZ => lower rank approximation
+    #Ψ => larger rank matrix to be approximated
+    @unpack μ, rtol, atol, maxiter = alg
     iter = 0
-    while iter < maxiter
-        dU = -(I-U*U')*Ψ_U*(Ψ_Z'*Z*pinv(C, atol = pinv_tol))  
-        dZ = Z - Ψ_Z*(Ψ_U'*U)
-        if norm(dU)^2 + norm(dZ)^2 < ϵ
-            break
-        end
-        U .-= μ*dU
-        Z .-= μ*dZ    
-        gd_orthonormalization!(U, Z)
-        iter += 1
-    end
-    if iter == maxiter
-        @warn "Orthonormalization did not converge. 
-               Iterations exceeded maxiters = $maxiter. 
-               Primal residual: $(norm(dU)^2+norm(dZ)^2)"
-    end
-end
+    C = Symmetric(Φ.Z', Φ.Z)
+    UtU = Ψ.U'*Φ.U
+    ZtZ = Ψ.Z'*Φ.Z
+    k1 = ZtZ / C 
+    k2 = Ψ.Z*UtU
+    k3 = Φ.U*UtU
+    k4 = k3*k1
+    k5 = Ψ.U*k1 
 
-function gd_truncated_svd!(U,Z,C,Ψ; μ=0.1, ϵ=1e-8, maxiter = 100, pinv_tol = 1e-8)
-    iter = 0
-    while iter < maxiter
-        dU = -(I-U*U')*Ψ'*Z*pinv(C, atol = pinv_tol)
-        dZ = Z - Ψ'*U
-        if norm(dU)^2 + norm(dZ)^2 < ϵ
-            break
-        end
-        U .-= μ*dU
-        Z .-= μ*dZ    
-        gd_orthonormalization!(U, Z)
-        C .= Z'*Z
+    dZ = Φ.Z - k2
+    dU = k4 - k5 
+    while (iter < maxiter && 
+          norm(dU)^2 + norm(dZ)^2 > atol^2 && 
+          (norm(dU)^2 + norm(dZ)^2)/(norm(U)^2 + norm(Z)^2) > rtol^2)
+
+        Φ.U .-= μ*dU
+        Ψ.Z .-= μ*dZ
+        orthonormalize!(Φ, orth_alg)
         iter += 1
+
+        C = Symmetric(Φ.Z', Φ.Z)
+        mul!(UtU, Ψ.U',Φ.U)
+        mul!(ZtZ, Ψ.Z',Φ.Z)
+        k1 = ZtZ / C 
+        mul!(k2,Ψ.Z,UtU)
+        mul!(k3,Φ.U,UtU)
+        mul!(k4,k3,k1)
+        mul!(k5,Ψ.U,k1)
+        dZ = Φ.Z - k2
+        dU = k4 - k5
     end
     if iter == maxiter
         @warn "Orthonormalization did not converge. 
                Iterations exceeded maxiters = $maxiter. 
-               Primal residual: $(norm(dU)^2+norm(dZ)^2)"
-    end
+               Residual: $(norm(dU)^2+norm(dZ)^2)"
+    end    
 end
-=#
