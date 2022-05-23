@@ -17,8 +17,8 @@ struct RankAdaptiveUnconventionalAlgorithm{sType, lType, kType} <: AbstractDLRAl
 end
 function RankAdaptiveUnconventionalAlgorithm(tol; S_rhs = nothing, L_rhs = nothing, K_rhs = nothing,
                                              S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
-                                             S_alg = Tsit5(), L_alg = Tsit5(), K_alg = Tsit5(), r_max = 2^62)
-    params = RankAdaptiveUnconventionalAlgorithm_Params(S_rhs, L_rhs, K_rhs, S_kwargs, L_kwargs, K_kwargs, S_alg, L_alg, K_alg, tol, r_max)
+                                             S_alg = Tsit5(), L_alg = Tsit5(), K_alg = Tsit5(), rmax = 2^62)
+    params = RankAdaptiveUnconventionalAlgorithm_Params(S_rhs, L_rhs, K_rhs, S_kwargs, L_kwargs, K_kwargs, S_alg, L_alg, K_alg, tol, rmax)
     return RankAdaptiveUnconventionalAlgorithm(params)
 end
 
@@ -91,7 +91,7 @@ function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorit
                                                      nothing, nothing, nothing, nothing)
 end
 
-function init(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorithm, dt)
+function init(prob::AbstractDLRProblem, alg::RankAdaptiveUnconventionalAlgorithm, dt)
     t0, tf = prob.tspan
     @assert tf > t0 "Integration in reverse time direction is not supported"
     u = deepcopy(prob.u0)
@@ -100,11 +100,10 @@ function init(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorithm, d
     # initialize cache
     cache = alg_cache(prob, alg, u, dt; t0 = t0)
     sol.Y[1] = deepcopy(prob.u0) # add initial point to solution object
-    
     return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)   
 end
 
-function alg_cache(prob::MatrixDataProblem, alg::RankAdaptiveUnconventionalAlgorithm, u, dt)
+function alg_cache(prob::MatrixDataProblem, alg::RankAdaptiveUnconventionalAlgorithm, u, dt; t0 = prob.tspan[1])
     # creates caches for frequently used arrays by performing the first time step
     @unpack y = prob
     t0 = prob.tspan[1]
@@ -144,20 +143,18 @@ function alg_recache(cache::RankAdaptiveUnconventionalAlgorithm_Cache, alg::Rank
     Vhat = zeros(m,2r)
     N = zeros(2r,r)
 
-    # the following sequence can probably somehow be handled via dispatch
+    # the following sequence can probably somehow be handled via dispatch in a simpler way
     if isnothing(KProblem)
         KIntegrator = MatrixDataIntegrator(Δy, US, I, u.V, 1)
     else
         KProblem = remake(KProblem, u0 = US, p = u.V, tspan = (t, t+1.0))
         KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
-        #set_t!(KIntegrator, t) # this is breaking things somehow
     end
     if isnothing(LProblem)
         LIntegrator = MatrixDataIntegrator(Δy', VS, I, u.U, 1)
     else
         LProblem = remake(LProblem, u0 = VS, p = u.U, tspan = (t, t+1.0))
         LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
-        #set_t!(LIntegrator, t)
     end
 
     if isnothing(SProblem)
@@ -165,7 +162,6 @@ function alg_recache(cache::RankAdaptiveUnconventionalAlgorithm_Cache, alg::Rank
     else
         SProblem = remake(SProblem, u0 = zeros(2*r,2*r), p = [Uhat, Vhat], tspan = (t, t+1.0))
         SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
-        #set_t!(SIntegrator, t)
     end
 
     return RankAdaptiveUnconventionalAlgorithm_Cache(US, Uhat, VS, Vhat, M, N, SIntegrator, SProblem, LIntegrator, LProblem,
