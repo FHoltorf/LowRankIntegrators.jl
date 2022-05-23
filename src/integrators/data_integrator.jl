@@ -19,3 +19,10 @@ function set_u!(integrator::MatrixDataIntegrator, unew)
     integrator.u .= unew
 end
 
+function update_data!(x,y::Function,t::Number,dt::Number)
+    x .= y(t+dt)
+end
+
+function update_data!(x,y::AbstractArray,t::Int,dt::Int)
+    x .= deepcopy(y[t + dt])
+end

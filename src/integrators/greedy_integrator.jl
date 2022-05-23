@@ -90,7 +90,7 @@ end
 function greedy_step!(u::TwoFactorRepresentation, cache, t, dt, ::Type{<:MatrixDataProblem})
     @unpack Z, U = u 
     @unpack Y, X, XZ = cache
-    X .= Y(t+dt)
+    update_data!(X,Y,t,dt)
     mul!(Z, X', U)
     mul!(XZ, X, Z)
     Q, _, P = svd(XZ)
@@ -100,7 +100,7 @@ end
 function greedy_step!(u::SVDLikeRepresentation, cache, t, dt, ::Type{<:MatrixDataProblem})
     @unpack U, S, V = u 
     @unpack Y, X, XV, XU = cache
-    X .= Y(t+dt)
+    update_data!(X,Y,t,dt)
     mul!(XV,X,V)
     mul!(XU,X',U)
     U .= Matrix(qr(XV).Q)

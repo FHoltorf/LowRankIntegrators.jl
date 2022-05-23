@@ -86,8 +86,9 @@ end
 function alg_cache(prob::MatrixDataProblem, alg::UnconventionalAlgorithm,u,dt; t0 = prob.tspan[1])
     n, r = size(u.U)
     m = size(u.V, 1)
+    @unpack y = prob
 
-    yprev = prob.y(t0)
+    yprev = y isa AbstractArray ? deepcopy(y[1]) : y(t0)
     ycurr = deepcopy(yprev)
     Δy = similar(yprev)
     US = zeros(eltype(u.U),n,r)
@@ -123,7 +124,7 @@ end
 
 function unconventional_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
     @unpack y, ycurr, yprev, Δy = cache
-    ycurr .= y(t+dt)
+    update_data!(ycurr, y, t, dt)
     Δy .= ycurr - yprev
     yprev .= ycurr
     unconventional_step!(u, cache, t, dt)
