@@ -1,4 +1,8 @@
-struct LieTrotterProjectorSplitting_Params{sType, lType, kType}
+struct PrimalLieTrotter end
+struct DualLieTrotter end
+struct Strang end
+
+struct ProjectorSplitting_Params{sType, lType, kType}
     S_rhs # rhs of S step (core projected rhs)
     L_rhs # rhs of L step (range projected rhs)
     K_rhs # rhs of K step (corange projected rhs)
@@ -24,43 +28,19 @@ struct ProjectorSplitting_Cache{uType,SIntegratorType,LIntegratorType,KIntegrato
     Δy::yType
 end
 
-struct PrimalLieTrotterProjectorSplitting{sType, lType, kType} <: AbstractDLRAlgorithm
-    alg_params::LieTrotterProjectorSplitting_Params{sType, lType, kType}
+struct ProjectorSplitting{oType, sType, lType, kType} <: AbstractDLRAlgorithm
+    order::oType
+    alg_params::ProjectorSplitting_Params{sType, lType, kType}
 end
 
-function PrimalLieTrotterProjectorSplitting(;S_rhs = nothing, L_rhs = nothing, K_rhs = nothing, 
-                                             S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
-                                             S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5()) 
-    params = LieTrotterProjectorSplitting_Params(S_rhs,L_rhs,K_rhs,S_kwargs,L_kwargs,K_kwargs,S_alg,L_alg,K_alg)
-    return PrimalLieTrotterProjectorSplitting(params)
+function ProjectorSplitting(order = PrimalLieTrotter();S_rhs = nothing, L_rhs = nothing, K_rhs = nothing, 
+                             S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
+                             S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5()) 
+    params = ProjectorSplitting_Params(S_rhs,L_rhs,K_rhs,S_kwargs,L_kwargs,K_kwargs,S_alg,L_alg,K_alg)
+    return ProjectorSplitting(order, params)
 end 
 
-struct DualLieTrotterProjectorSplitting{sType, lType, kType} <: AbstractDLRAlgorithm
-    alg_params::LieTrotterProjectorSplitting_Params{sType, lType, kType}
-end
-
-function DualLieTrotterProjectorSplitting(;S_rhs = nothing, L_rhs = nothing, K_rhs = nothing,
-                                           S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
-                                           S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5())
-    
-    params = LieTrotterProjectorSplitting_Params(S_rhs,L_rhs,K_rhs,S_kwargs,L_kwargs,K_kwargs,S_alg,L_alg,K_alg)
-    return DualLieTrotterProjectorSplitting(params)          
-end
-
-struct StrangProjectorSplitting{sType, lType, kType} <: AbstractDLRAlgorithm
-    alg_params::LieTrotterProjectorSplitting_Params{sType, lType, kType}
-end
-
-function StrangProjectorSplitting(;S_rhs = nothing, L_rhs = nothing, K_rhs = nothing,
-                                   S_kwargs = Dict(), L_kwargs = Dict(), K_kwargs = Dict(),
-                                   S_alg=Tsit5(), L_alg = Tsit5(), K_alg = Tsit5())
-    params = LieTrotterProjectorSplitting_Params(S_rhs,L_rhs,K_rhs,S_kwargs,L_kwargs,K_kwargs,S_alg,L_alg,K_alg)
-    return StrangProjectorSplitting(params)          
-end
-
-function alg_cache(prob::MatrixDEProblem, alg::algType, u, dt; t0 = prob.tspan[1]) where algType <: Union{PrimalLieTrotterProjectorSplitting,
-                                                                                                          DualLieTrotterProjectorSplitting,
-                                                                                                          StrangProjectorSplitting}
+function alg_cache(prob::MatrixDEProblem, alg::ProjectorSplitting, u, dt; t0 = prob.tspan[1])
     # allocate memory for frequently accessed arrays
     tspan = (t0,t0+dt)
 
@@ -104,9 +84,7 @@ function alg_cache(prob::MatrixDEProblem, alg::algType, u, dt; t0 = prob.tspan[1
                                     nothing, nothing, nothing, nothing)
 end
 
-function alg_cache(prob::MatrixDataProblem, alg::algType, u, dt; t0 = prob.tspan[1]) where algType <: Union{PrimalLieTrotterProjectorSplitting, 
-                                                                                                            DualLieTrotterProjectorSplitting, 
-                                                                                                            StrangProjectorSplitting}
+function alg_cache(prob::MatrixDataProblem, alg::ProjectorSplitting, u, dt; t0 = prob.tspan[1])
     # creates caches for frequently used arrays by performing the first time step
     @unpack y = prob
     
@@ -126,9 +104,7 @@ function alg_cache(prob::MatrixDataProblem, alg::algType, u, dt; t0 = prob.tspan
                                     prob.y, ycurr, yprev, Δy)
 end
 
-function init(prob::AbstractDLRProblem, alg::algType, dt) where algType <: Union{StrangProjectorSplitting, 
-                                                                                 PrimalLieTrotterProjectorSplitting, 
-                                                                                 DualLieTrotterProjectorSplitting}
+function init(prob::AbstractDLRProblem, alg::ProjectorSplitting, dt)
     t0, tf = prob.tspan
     @assert tf > t0 "Integration in reverse time direction is not supported"
     u = deepcopy(prob.u0)
@@ -212,21 +188,21 @@ function dual_LT_step!(u, cache, t, dt)
     u.S .= QRK.R
 end
 
-function step!(integrator::DLRIntegrator, ::PrimalLieTrotterProjectorSplitting, dt)
+function step!(integrator::DLRIntegrator, ::ProjectorSplitting{PrimalLieTrotter,S,L,K}, dt) where {S,L,K}
     @unpack u, t, iter, cache, probType = integrator
     primal_LT_step!(u, cache, t, dt, probType)
     integrator.t += dt
     integrator.iter += 1
 end
 
-function step!(integrator::DLRIntegrator, ::DualLieTrotterProjectorSplitting, dt)
+function step!(integrator::DLRIntegrator, ::ProjectorSplitting{DualLieTrotter,S,L,K}, dt) where {S,L,K}
     @unpack u, t, iter, cache, probType = integrator
     dual_LT_step!(u, cache, t, dt, probType)
     integrator.t += dt
     integrator.iter += 1
 end
 
-function step!(integrator::DLRIntegrator, ::StrangProjectorSplitting, dt)
+function step!(integrator::DLRIntegrator, ::ProjectorSplitting{Strang,S,L,K}, dt) where {S,L,K}
     @unpack u, t, iter, cache, probType = integrator
     primal_LT_step!(u, cache, t, dt/2, probType)
     dual_LT_step!(u, cache, t + dt/2, dt/2, probType)
