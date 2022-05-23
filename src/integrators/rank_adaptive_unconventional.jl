@@ -95,12 +95,8 @@ function init(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorithm, d
     t0, tf = prob.tspan
     @assert tf > t0 "Integration in reverse time direction is not supported"
     u = deepcopy(prob.u0)
-    # number of steps
-    n = floor(Int,(tf-t0)/dt) + 1 
-    # compute more sensible dt # rest will be handled via interpolation/save_at
-    dt = (tf-t0)/(n-1)
-    # initialize solution object
-    sol = DLRSolution(Vector{typeof(prob.u0)}(undef, n), collect(range(t0, tf, length=n)))
+    # initialize solution 
+    sol = init_sol(dt, t0, tf, prob.u0)
     # initialize cache
     cache = alg_cache(prob, alg, u, dt; t0 = t0)
     sol.Y[1] = deepcopy(prob.u0) # add initial point to solution object

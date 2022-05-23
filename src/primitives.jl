@@ -88,3 +88,17 @@ function update_sol!(integrator::AbstractDLRIntegrator)
         push!(integrator.sol.t, integrator.t)
     end
 end
+
+function init_sol(dt, t0, tf, u0) 
+    n = floor(Int,(tf-t0)/dt) + 1 
+    # compute more sensible dt # rest will be handled via interpolation/save_at
+    dt = (tf-t0)/(n-1)
+    # initialize & return solution object
+    return DLRSolution(Vector{typeof(u0)}(undef, n), collect(range(t0, tf, length=n)))    
+end
+
+function init_sol(dt::Int, t0, tf, u0) 
+    # initialize solution object
+    steps = t0:dt:tf
+    return DLRSolution(Vector{typeof(u0)}(undef, length(steps)), collect(steps))    
+end

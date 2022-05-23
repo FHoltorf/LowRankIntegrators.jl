@@ -13,9 +13,7 @@ export MatrixDEProblem, MatrixDataProblem, MatrixHybridProblem
        solve
 
 include("integrators.jl")
-export PrimalLieTrotterProjectorSplitting,
-       DualLieTrotterProjectorSplitting, 
-       StrangProjectorSplitting, 
+export ProjectorSplitting, PrimalLieTrotter, DualLieTrotter, Strang,
        UnconventionalAlgorithm,
        RankAdaptiveUnconventionalAlgorithm,
        DOAlgorithm, DirectTimeMarching,
