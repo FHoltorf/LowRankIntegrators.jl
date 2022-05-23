@@ -25,6 +25,9 @@ mutable struct MatrixDataProblem{yType, uType, tType} <: AbstractDLRProblem
     u0::uType
     tspan::Tuple{tType, tType}
 end
+function MatrixDataProblem(y::AbstractArray, u0)
+    return MatrixDataProblem(y, u0, (1,length(y)))
+end
 
 """
     Problem of identifying optimal projection basis U(t) such that we get good reconstruction
@@ -70,6 +73,10 @@ function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt)
         update_sol!(integrator)
     end
     return integrator.sol
+end
+function solve(prob::MatrixDataProblem, alg::AbstractDLRAlgorithm)
+    @assert typeof(prob.y) <: AbstractArray "If the data is not provided as array, integration stepsize needs to be specified"
+    return solve(prob, alg, 1)
 end
 
 function update_sol!(integrator::AbstractDLRIntegrator)
