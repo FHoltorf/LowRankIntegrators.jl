@@ -40,9 +40,10 @@ end
 
 function alg_cache(prob::MatrixHybridProblem, alg::GreedyIntegrator, u, dt)
     XZ = zeros(size(u,1), rank(u))
+    X = zeros(size(u)...)
     ZProblem = ODEProblem(prob.f, u.Z, prob.tspan, u.U)
     ZIntegrator = init(ZProblem, alg.alg_params.Z_alg; save_everystep=false, alg.alg_params.Z_kwargs...)
-    return GreedyIntegrator_Cache(prob.y, nothing, XZ, nothing, nothing, ZIntegrator)
+    return GreedyIntegrator_Cache(prob.y, X, XZ, nothing, nothing, ZIntegrator)
 end
 
 function init(prob::MatrixDataProblem, alg::GreedyIntegrator, dt)
@@ -71,10 +72,11 @@ end
 
 function greedy_step!(u::TwoFactorRepresentation, cache, t, dt, ::Type{<:MatrixHybridProblem})
     @unpack Z, U = u
-    @unpack Y, ZIntegrator, XZ = cache
+    @unpack X, Y, ZIntegrator, XZ = cache
     step!(ZIntegrator, dt, true) 
     Z .= ZIntegrator.u
-    mul!(XZ, Y(t+dt), Z)
+    update_data!(X, Y, t, dt)
+    mul!(XZ, X, Z)
     Q, _, P = svd(XZ)
     mul!(U, Q, P') 
 end
