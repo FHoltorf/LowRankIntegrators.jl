@@ -7,15 +7,19 @@ LowRankIntegrators.jl is a package for dynamical low rank approximation (DLRA) i
 
 ## Concept
 Given a matrix-valued ODE, 
+
 $$
     \frac{dX}{dt}(t) = F(X(t),t), \ X(0) = X_0, \text{ for all } t \in [t_0, t_f]
 $$
+
 with $X(t) \in \mathbb{R}^{n\times m}$ for all $t \in [t_0,t_f]$, DLRA seeks to identify a rank $r \ll \min(n,m)$ approximation $Y(t)$ to the true solution $X(t)$. This reduces memory requirements and under appropriate structural assumptions on the flow map $F$ can also speed up integration substantially. 
 
 Conceptually, DLRA propagates a rank $r$ approximation of the intial condition (usually $Y(0) = \Pi_{\mathcal{M}_r} X_0$, i.e., projection of $X(0)$ onto the manifold of rank $r$ matrices) forward in time according to the Dirac-Frenkel time-varying variational principle:
+
 $$
     \frac{dY}{dt}(t) \in \mathcal{T}_{\mathcal{M}_r}(Y(t)) \text{ s.t. } \left\| \frac{dY}{dt}(t) - F(Y(t),t) \right\|_F \to \min
 $$
+
 Here, $\mathcal{T}_{\mathcal{M}_r}(Y(t))$ refers to the tangent space of the manifold of real $n\times m$ matrices of rank $r$ at the point $Y(t)$. 
 
 ## Example applications
@@ -23,9 +27,11 @@ While seemingly abstract at first, the solution of exceedingly large matrix-valu
 
 ### Time series data compression
 Given stream of data as described by a function $A:[t_0,t_f] \to \mathbb{R}^{n\times m}$ mapping time point to a data matrix (think of a stream of images forming a movie) we may consider the problem of compressing this data stream. This can be cast as solving a matrix valued ODE 
+
 $$
 \frac{dX}{dt}(t) = \frac{dA}{dt}(t), \ X(0)= A(0), \text{ for all } t\in [t_0, t_f].
 $$
+
 Thus, DLRA can be used to propagate a compression of this data forward in time which can be substantially cheaper than compressing the data at every instant of time with other methods.  
 
 ### Uncertainty quantification
@@ -34,18 +40,23 @@ $$
  \frac{dx}{dt}(p;t) = f(x(p;t),p, t), \ x(p;0) = x_0(p), \text{ for all } t\in[t_0, t_f]
 $$
 one often wishes to understand the parametric dependence of its solution. Arguably the simplest approach to this problem is sampling, where the ODE is simply evaluated for $m$ parameter values $p_1, \dots, p_m$. In many cases, however, it may be exceedingly expensive to evaluate the above ODE $m$ times, in particular when the dimension $n$ of the state is large. In those cases, DLRA may provide a means to recover tractability of the sampling procedure at the cost of approximation. To see this, note that the solution of the sampling procedure may be arranged in a $n\times m$ matrix
+
 $$
 X(t) := \begin{bmatrix}x(p_1;t) & \cdots & x(p_m;t) \end{bmatrix}
 $$
+
 whose dynamics are governed by
+
 $$
 F(X(t),t) := \begin{bmatrix}f(x(p_1;t),p_1,t) & \cdots & f(x(p_m;t), p_m, t) \end{bmatrix}.
 $$
 
 Note further that applying DLRA to this problem is equivalent to a quite intuitive function expansion strategy which forms the basis of other uncertainty quantification methods such as polynomial chaos expansion. In particular, the use of DLRA can be viewed as the discrete analog of applying the following expansion Ansatz to the parametric solution $x(p;t)$:
+
 $$
     x(p;t) \approx \sum_{i=1}^r u_i(t) z_i(p;t)
 $$
+
 where the expansion modes $u_i(t)$ are chosen in a certain sense optimally. 
 
 ## Primitives
@@ -53,9 +64,11 @@ LowRankIntegrators.jl relies on a handful of primitives to enable the non-intrus
 
 ### MatrixDEProblem
 Given a matrix differential equation
+
 $$
     \frac{dX}{dt}(t) = F(X(t),t), \ X(0) = X_0, \text{ for all } t \in [t_0, t_f]
 $$
+
 to be approximately solved via DLRA, the problem shall be set up as `MatrixDEProblem(F,Y0,tspan)` where
 
 * `F` is the right-hand-side of the matrix ODE. `F` must accept two arguments, the first one being the (matrix-valued) state and the second time (or appropriate independent variable). 
