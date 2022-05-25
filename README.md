@@ -36,9 +36,11 @@ Thus, DLRA can be used to propagate a compression of this data forward in time w
 
 ### Uncertainty quantification
 Given a parametric $n$-dimensional ODE,
+
 $$
  \frac{dx}{dt}(p;t) = f(x(p;t),p, t), \ x(p;0) = x_0(p), \text{ for all } t\in[t_0, t_f]
 $$
+
 one often wishes to understand the parametric dependence of its solution. Arguably the simplest approach to this problem is sampling, where the ODE is simply evaluated for $m$ parameter values $p_1, \dots, p_m$. In many cases, however, it may be exceedingly expensive to evaluate the above ODE $m$ times, in particular when the dimension $n$ of the state is large. In those cases, DLRA may provide a means to recover tractability of the sampling procedure at the cost of approximation. To see this, note that the solution of the sampling procedure may be arranged in a $n\times m$ matrix
 
 $$
