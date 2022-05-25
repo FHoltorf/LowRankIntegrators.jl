@@ -26,7 +26,9 @@ $$
     \frac{dY}{dt}(t) = \Pi_{\mathcal{T}_{\mathcal{M}_r}(Y(t))} F(Y(t),t).
 $$
 
-<center> <img src = "docs/assets/DLRA_geometry.png" alt = "logo" width = 400/> </center>
+<p align="center">
+    <img src = "docs/assets/DLRA_geometry.png" alt = "logo" width = 400/> 
+</p>
 
 ## Example applications
 While seemingly abstract at first, the solution of exceedingly large matrix-valued ODEs is quite a common problem. In the following we briefly discuss two general applications. 
