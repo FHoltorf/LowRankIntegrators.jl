@@ -71,6 +71,7 @@ function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt)
     while (prob.tspan[2]-integrator.t)/T > 1e-8 
         step!(integrator, alg, dt)
         update_sol!(integrator)
+        println(integrator.t)
     end
     return integrator.sol
 end
