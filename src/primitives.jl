@@ -66,12 +66,14 @@ end
     solves the given problem with the specified algorithm and step size
 """
 function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt)
+    println("Initialize integrator:")
     integrator = init(prob, alg, dt)
+    println("Initialization complete. Start Integration.")
     T = prob.tspan[2] - prob.tspan[1]
     while (prob.tspan[2]-integrator.t)/T > 1e-8 
         step!(integrator, alg, dt)
         update_sol!(integrator)
-        println(integrator.t)
+        println("t = $(integrator.t)")
     end
     return integrator.sol
 end
