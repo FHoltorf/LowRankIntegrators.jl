@@ -220,7 +220,7 @@ function rankadaptive_unconventional_step!(u, cache, t, dt)
     step!(SIntegrator, dt, true)
 
     U, S, V = svd(SIntegrator.u)
-    r_new = min(r_max, LowRankArithmetic.truncate_to_tolerance(S, tol))
+    r_new = min(r_max, LowRankArithmetic.truncate_to_tolerance(S, tol, rel=true))
     if r_new == r 
         mul!(u.U,Uhat,U[:,1:r_new])
         u.S .= Matrix(Diagonal(S[1:r_new]))
