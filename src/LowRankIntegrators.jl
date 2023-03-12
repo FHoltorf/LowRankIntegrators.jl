@@ -1,11 +1,19 @@
 module LowRankIntegrators
-using Reexport, UnPack
+using Reexport, UnPack, DocStringExtensions
 import DifferentialEquations: step!, set_u!, init
 
 @reexport using LinearAlgebra, DifferentialEquations, LowRankArithmetic
 
 include("utils.jl")
 export orthonormalize!, GradientDescent, QR, SVD, SecondMomentMatching, normal_component
+
+include("sparse_interpolation.jl")
+export SparseFunctionInterpolator, SparseMatrixInterpolator, 
+       DEIMInterpolator, AdjointDEIMInterpolator, 
+       DEIM, QDEIM, LDEIM,
+       ComponentFunction, SparseInterpolation,
+       update_interpolator!, eval!,
+       index_selection
 
 include("primitives.jl")
 export MatrixDEProblem, MatrixDataProblem, MatrixHybridProblem

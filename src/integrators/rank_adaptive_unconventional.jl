@@ -47,7 +47,7 @@ end
 function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorithm, u, dt; t0 = prob.tspan[1])
     # allocate memory for frequently accessed arrays
     tspan = (t0, t0+dt)
-    r = rank(u)
+    r = LowRankArithmetic.rank(u)
     n, m = size(u)
     US = u.U*u.S
     VS = u.V*u.S'
@@ -91,17 +91,17 @@ function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorit
                                                      nothing, nothing, nothing, nothing)
 end
 
-function init(prob::AbstractDLRProblem, alg::RankAdaptiveUnconventionalAlgorithm, dt)
-    t0, tf = prob.tspan
-    @assert tf > t0 "Integration in reverse time direction is not supported"
-    u = deepcopy(prob.u0)
-    # initialize solution 
-    sol = init_sol(dt, t0, tf, prob.u0)
-    # initialize cache
-    cache = alg_cache(prob, alg, u, dt; t0 = t0)
-    sol.Y[1] = deepcopy(prob.u0) # add initial point to solution object
-    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)   
-end
+# function init(prob::AbstractDLRProblem, alg::RankAdaptiveUnconventionalAlgorithm, dt)
+#     t0, tf = prob.tspan
+#     @assert tf > t0 "Integration in reverse time direction is not supported"
+#     u = deepcopy(prob.u0)
+#     # initialize solution 
+#     sol = init_sol(dt, t0, tf, prob.u0)
+#     # initialize cache
+#     cache = alg_cache(prob, alg, u, dt; t0 = t0)
+#     sol.Y[1] = deepcopy(prob.u0) # add initial point to solution object
+#     return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)   
+# end
 
 function alg_cache(prob::MatrixDataProblem, alg::RankAdaptiveUnconventionalAlgorithm, u, dt; t0 = prob.tspan[1])
     # creates caches for frequently used arrays by performing the first time step
@@ -132,7 +132,7 @@ end
 
 function alg_recache(cache::RankAdaptiveUnconventionalAlgorithm_Cache, alg::RankAdaptiveUnconventionalAlgorithm, u, t)
     @unpack SProblem, KProblem, LProblem, tol, r_max, y, yprev, ycurr, Δy = cache
-    r = rank(u)
+    r = LowRankArithmetic.rank(u)
     n, m = size(u)
 
     US = zeros(n,r)
@@ -220,7 +220,7 @@ function rankadaptive_unconventional_step!(u, cache, t, dt)
     step!(SIntegrator, dt, true)
 
     U, S, V = svd(SIntegrator.u)
-    r_new = min(r_max, LowRankArithmetic.truncate_to_tolerance(S, tol, rel=true))
+    r_new = min(r_max, LowRankArithmetic.truncate_to_tolerance(S, tol))#, rel=true))
     if r_new == r 
         mul!(u.U,Uhat,U[:,1:r_new])
         u.S .= Matrix(Diagonal(S[1:r_new]))

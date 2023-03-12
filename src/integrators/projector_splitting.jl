@@ -104,15 +104,15 @@ function alg_cache(prob::MatrixDataProblem, alg::ProjectorSplitting, u, dt; t0 =
                                     prob.y, ycurr, yprev, Δy)
 end
 
-function init(prob::AbstractDLRProblem, alg::ProjectorSplitting, dt)
-    t0, tf = prob.tspan
-    @assert tf > t0 "Integration in reverse time direction is not supported"
-    u = deepcopy(prob.u0)
-    sol = init_sol(dt, t0, tf, prob.u0)
-    cache = alg_cache(prob, alg, u, dt, t0 = t0)
-    sol.Y[1] = deepcopy(prob.u0) # add initial point to solution object
-    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)   
-end
+# function init(prob::AbstractDLRProblem, alg::ProjectorSplitting, dt)
+#     t0, tf = prob.tspan
+#     @assert tf > t0 "Integration in reverse time direction is not supported"
+#     u = deepcopy(prob.u0)
+#     sol = init_sol(dt, t0, tf, prob.u0)
+#     cache = alg_cache(prob, alg, u, dt, t0 = t0)
+#     sol.Y[1] = deepcopy(prob.u0) # add initial point to solution object
+#     return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)   
+# end
 
 function primal_LT_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
     @unpack y, ycurr, yprev, Δy = cache

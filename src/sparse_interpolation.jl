@@ -1,7 +1,6 @@
-using DocStringExtensions, UnPack, LinearAlgebra
-
 import LinearAlgebra.adjoint
 import Base.size
+
 """
     $(TYPEDEF)
 
@@ -25,6 +24,14 @@ struct InterpolatorCache{T} <: AbstractInterpolatorCache
     rows::Matrix{T}
     cols::Matrix{T}
     elements::Matrix{T}
+end
+
+function resize_rows(IC::InterpolatorCache{T}, n_rows::Int) where T
+    return InterpolatorCache(Matrix{T}(undef, n_rows, size(IC.rows,2)), IC.cols, IC.rows)
+end
+
+function resize_cols(IC::InterpolatorCache{T}, n_cols::Int) where T
+    return InterpolatorCache(IC.rows, Matrix{T}(undef, size(IC.cols,2), n_cols), IC.rows)
 end
 
 """
@@ -168,6 +175,16 @@ function SparseFunctionInterpolator(F, interpolator::SparseMatrixInterpolator;
     Matrix{output}(undef, r_rows, r_cols))
     return SparseFunctionInterpolator(F, interpolator, cache)
 end 
+"""
+    $(TYPEDSIGNATURES)
+
+    helper function querying the interpolation indices.
+"""
+interpolation_indices(Π::DEIMInterpolator) = Π.interpolation_idcs
+interpolation_indices(Π::AdjointDEIMInterpolator) = Π.parent.interpolation_idcs
+interpolation_indices(Π::SparseMatrixInterpolator) = (interpolation_indices(Π.range), interpolation_indices(Π.corange))
+interpolation_indices(Π::SparseFunctionInterpolator) = interpolation_indices(Π.interpolator)
+
 
 """
     $(TYPEDSIGNATURES)
@@ -178,7 +195,7 @@ function update_interpolator!(Π::SparseFunctionInterpolator, interpolator::DEIM
     Π.interpolator = interpolator
     r_rows = rank(interpolator)
     T = eltype(Π.cache.cols)
-    Π.cache = InterpolationCache(Matrix{T}(undef, r_rows, F.n_cols),
+    Π.cache = InterpolatorCache(Matrix{T}(undef, r_rows, Π.F.n_cols),
                                  Matrix{T}(undef, 0, 0),
                                  Matrix{T}(undef, 0, 0))
 end
@@ -187,20 +204,20 @@ function update_interpolator!(Π::SparseFunctionInterpolator, interpolator::Adjo
     Π.interpolator = interpolator
     r_cols = rank(interpolator)
     T = eltype(Π.cache.cols)
-    Π.cache = InterpolationCache(Matrix{T}(undef, 0, 0),
-                                 Matrix{T}(undef, F.n_rows, r_cols),
+    Π.cache = InterpolatorCache(Matrix{T}(undef, 0, 0),
+                                 Matrix{T}(undef, Π.F.n_rows, r_cols),
                                  Matrix{T}(undef, 0, 0))
 end
 
 function update_interpolator!(Π::SparseFunctionInterpolator, interpolator::SparseMatrixInterpolator)
     Π.interpolator = interpolator
     r_rows, r_cols = rank(interpolator.range), rank(interpolator.corange)
-    dim_range = size(interpolator.range.interpolator, 1)
+    dim_range = size(interpolator.range.weights, 1)
     dim_corange = size(interpolator.corange.weights, 1)
     T = eltype(Π.cache.cols)
-    Π.cache = InterpolationCache(Matrix{T}(undef, r_rows, dim_corange),
-                                 Matrix{T}(undef, dim_range, r_cols),
-                                 Matrix{T}(undef, r_rows, r_cols))
+    Π.cache = InterpolatorCache(Matrix{T}(undef, r_rows, dim_corange),
+                                Matrix{T}(undef, dim_range, r_cols),
+                                Matrix{T}(undef, r_rows, r_cols))
 end
 
 """
@@ -224,6 +241,14 @@ function eval!(Π::SparseFunctionInterpolator{IP, fType, T}, x, p, t) where {IP 
     @unpack range, corange = Π.interpolator
     @unpack cache = Π
     Π.F.elements!(cache.elements, x, p, t, range.interpolation_idcs, corange.interpolation_idcs)
+end
+
+function eval_rows!(dx, Π::SparseFunctionInterpolator, x, p, t, idcs)
+    Π.F.rows!(dx, x, p, t, idcs)
+end
+
+function eval_cols!(dx, Π::SparseFunctionInterpolator, x, p, t, idcs)
+    Π.F.cols!(dx, x, p, t, idcs)
 end
 
 """
@@ -290,21 +315,55 @@ abstract type IndexSelectionAlgorithm end
 
     DEIM index selection algorithm.
 """
-struct DEIM end
+struct DEIM <: IndexSelectionAlgorithm 
+    tol::Float64
+    elasticity::Float64
+    rmin::Int
+    rmax::Int
+end
+
+function DEIM( ;tol = eps(Float64), rmin = 1, rmax = 2^62, elasticity = 0.1)
+    return DEIM(tol, elasticity, rmin, rmax)
+end
 
 """
     $(TYPEDEF)
 
     QDEIM index selection algorithm.
 """
-struct QDEIM end
+struct QDEIM <: IndexSelectionAlgorithm
+    tol::Float64
+    elasticity::Float64
+    rmin::Int
+    rmax::Int
+end
+
+function QDEIM( ;tol = eps(Float64), rmin = 1, rmax = 2^62, elasticity = 0.1)
+    return QDEIM(tol, elasticity, rmin, rmax)
+end
+
+"""
+    $(TYPEDEF)
+
+    LDEIM index selection algorithm. Selects `n` indices. 
+"""
+struct LDEIM <: IndexSelectionAlgorithm
+    tol::Float64
+    elasticity::Float64
+    rmin::Int
+    rmax::Int
+end
+
+function LDEIM( ;tol = eps(Float64), rmin = 1, rmax = 2^62, elasticity = 0.1)
+    return LDEIM(tol, elasticity, rmin, rmax)
+end
 
 """
     $(TYPEDSIGNATURES)
 
     returns interpolation indices for sparse interpolation. Supports DEIM and QDEIM index selection.
 """
-function index_selection(U::Matrix,::DEIM)
+function index_selection(U,::DEIM)
     m = size(U, 2)
     indices = Vector{Int}(undef, m)
     @inbounds @views begin
@@ -325,10 +384,93 @@ function index_selection(U::Matrix,::DEIM)
     return indices
 end
 
-function index_selection(U::Matrix,::QDEIM)
+function index_selection(U,::QDEIM)
     QR = qr(U', ColumnNorm())
     return QR.p[1:size(U,2)]
 end
+
+function index_selection(U::Matrix, r::Int, ::LDEIM)   
+    n, k = size(U)
+    if k > r
+        return index_selection(view(U, :, 1:r), DEIM())
+    else
+        Ψ = copy(U)
+        idcs = zeros(Int, r)
+        @views for i in 1:k-1
+            idcs[i] = argmax(Iterators.map(abs, Ψ[:,i]))
+            corr = Ψ[idcs[1:i],1:i] \ Ψ[idcs[1:i], i+1]
+            Ψ[:,i+1] -= Ψ[:,1:i] * corr
+        end
+        @views idcs[k] = argmax(Iterators.map(abs, Ψ[:,k]))
+        @views l = [i in idcs ? -1.0 : norm(Ψ[i,:]) for i in 1:n]
+        idcs[k+1:end] = partialsortperm(l, 1:r-k, by=-)
+        return idcs
+    end
+end
+
+function index_selection(U::Matrix, ::LDEIM)
+    return index_selection(U, DEIM())
+end
+
+function index_selection(U::Matrix, S::Vector, alg::IndexSelectionAlgorithm)
+    @assert size(U,2) == length(S) "Number of columns provided must coincide with number of singular values."
+
+    cutoff = length(S)
+    for σ in reverse(S)
+        if σ > alg.tol
+            break
+        end
+        cutoff -= 1
+    end
+    r = max(alg.rmin, min(alg.rmax, cutoff))
+    return index_selection(U[:,1:r], alg)
+end
+
+function index_selection(U::Matrix, S::Vector, alg::LDEIM)
+    @assert size(U,2) == length(S) "Number of columns provided must coincide with number of singular values."
+
+    if S[end] > alg.tol 
+        r = min(alg.rmax, length(S)+1)
+        return index_selection(U, r, alg)
+    else
+        #cutoff = findfirst(x -> x < alg.tol*alg.elasticity, S)
+        cutoff = findlast(x -> x > alg.tol*alg.elasticity, S)
+        if isnothing(cutoff)
+            cutoff = 1
+        end
+        #cutoff = length(S)
+        # for σ in reverse(S)
+        #     if σ > alg.tol*alg.elasticity
+        #         break
+        #     end
+        #     cutoff -= 1
+        # end
+        return index_selection(U, cutoff, alg)
+    end
+end
+
+
+"""
+    $(TYPEDEF)
+
+    type for carrying all necessary information for continuous sparse interpolation 
+    to be applied for dynamical low rank approximation.
+"""
+struct SparseInterpolation
+    selection_alg
+    update_scheme
+    tol
+    rmin
+    rmax
+    init_range
+    init_corange
+end
+
+function SparseInterpolation(selection_alg, init_range, init_corange; update_scheme = :last_iterate,
+                             rmin = 1, rmax = min(size(init_range,1), size(init_corange,1)), tol = eps(Float64))
+    return SparseInterpolation(selection_alg, update_scheme, tol, rmin, rmax, init_range, init_corange)
+end
+
 
 # a few lil tests
 #=
