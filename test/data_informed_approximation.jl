@@ -55,7 +55,7 @@
     true_sols = [zeros(n,m^2) for i in 1:length(t_range)]
     ode_prob = ODEProblem(burgers!, ones(n), (0.0, 1.0), (∇,Δ,C,D))
     for (i,ξ) in enumerate(ξs)
-        println(i)
+        println("Uncertainty realization $i")
         _prob = remake(ode_prob, u0 = ub(x_range) + uprime(x_range, ξ, σ))
         _sol = Array(DifferentialEquations.solve(_prob, saveat=t_range))
         for k in 1:length(t_range)
