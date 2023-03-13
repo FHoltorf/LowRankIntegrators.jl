@@ -314,7 +314,6 @@ function unconventional_deim_step!(u, cache, t, dt)
     u.S .= SIntegrator.u
 
     update_interpolation!(interpolation_cache, u, t, dt)
-    println(rank(interpolation_cache.Π))
 end
 
 # without rank adaptation
