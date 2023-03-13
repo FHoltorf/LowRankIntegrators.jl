@@ -1,5 +1,5 @@
 # greedy approach to fit 
-struct GreedyIntegrator_Cache
+struct GreedyIntegrator_Cache <: AbstractDLRAlgorithm_Cache
     Y
     X
     XZ
@@ -31,7 +31,7 @@ end
 
 function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::SVDLikeRepresentation, dt; t0 = prob.tspan[1])
     X = zeros(size(u))
-    r = rank(u)
+    r = LowRankArithmetic.rank(u)
     n, m = size(X)
     XV = zeros(n,r)
     XU = zeros(m,r) 

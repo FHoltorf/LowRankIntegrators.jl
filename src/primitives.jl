@@ -70,9 +70,8 @@ end
 """
 function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt; save_increment::Int=1)
     println("Initialize integrator ...")
-    integrator, t_int, save_idcs = init(prob, alg, dt, save_increment)
+    integrator, dt, t_int, save_idcs = init(prob, alg, dt, save_increment)
     println("... initialization complete. Start Integration ...")
-    dt = step(t_int)
     disp_digits = abs(round(Int, log10(save_increment*dt)))
     k = 2
     #while (prob.tspan[2]-integrator.t)/T > 1e-8 
@@ -97,11 +96,11 @@ function init(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt, save_incr
     @assert tf > t0 "Integration in reverse time direction is not supported"
     u = deepcopy(prob.u0)
     # initialize solution 
-    sol, t_int, save_idcs = init_sol(dt, t0, tf, prob.u0, save_increment)
+    sol, dt, t_int, save_idcs = init_sol(dt, t0, tf, prob.u0, save_increment)
     # initialize cache
     cache = alg_cache(prob, alg, u, dt, t0 = t0)
     sol.Y[1] = deepcopy(prob.u0) 
-    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0), t_int, save_idcs  
+    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0), dt, t_int, save_idcs  
 end
 
 function init_sol(dt, t0, tf, u0, save_increment) 
@@ -119,15 +118,16 @@ function init_sol(dt, t0, tf, u0, save_increment)
     r_deim = Vector{Int}(undef, n_eff)
     t = collect(range(t0, tf, length=n_eff))
     interpolation_idcs = Vector{Tuple{Vector{Int},Vector{Int}}}(undef, n_eff)
-    return DLRSolution(Y, t, r, r_deim, interpolation_idcs), t_int, save_idcs  
+    return DLRSolution(Y, t, r, r_deim, interpolation_idcs), dt, t_int, save_idcs  
 end
 
-function init_sol(dt::Int, t0, tf, u0) 
+function init_sol(dt::Int, t0::Int, tf::Int, u0, save_increment::Int) 
     # initialize solution object
-    n = floor(Int,(tf-t0)/dt) + 1 
-    dt = (tf-t0)/(n-1)
     t_int = t0:dt:tf
-    save_idcs = 1:save_increment:length(t_int)
+    if !(tf in t_int)
+        t_int = vcat(collect(t_int), tf)
+    end    
+    save_idcs = collect(1:save_increment:length(t_int))
     if save_idcs[end] != length(t_int)
         push!(save_idcs, length(t_int)) 
     end
@@ -136,7 +136,7 @@ function init_sol(dt::Int, t0, tf, u0)
     r = Vector{Int}(undef, n_eff)
     r_deim = Vector{Int}(undef, n_eff)
     interpolation_idcs = Vector{Tuple{Vector{Int},Vector{Int}}}(undef, n_eff)
-    return DLRSolution(Y, steps, r, r_deim, interpolation_idcs), t_int, save_idcs
+    return DLRSolution(Y, steps, r, r_deim, interpolation_idcs), dt, t_int, save_idcs
 end
 
 function update_sol!(integrator::AbstractDLRIntegrator, idx)
