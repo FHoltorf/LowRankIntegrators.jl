@@ -72,7 +72,7 @@ function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt; save_inc
     println("Initialize integrator ...")
     integrator, dt, t_int, save_idcs = init(prob, alg, dt, save_increment)
     println("... initialization complete. Start Integration ...")
-    disp_digits = abs(round(Int, log10(save_increment*dt)))
+    disp_digits = -floor(Int, log10(save_increment*dt))
     k = 2
     #while (prob.tspan[2]-integrator.t)/T > 1e-8 
     while integrator.iter < length(t_int) - 1
@@ -80,7 +80,7 @@ function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt; save_inc
         if integrator.iter + 1 == save_idcs[k] 
             update_sol!(integrator, k)
             k += 1 
-            println("t = $(round(integrator.t,sigdigits=disp_digits))")
+            println("t = $(round(integrator.t,digits=disp_digits))")
         end
     end
     println("... integration complete.")
