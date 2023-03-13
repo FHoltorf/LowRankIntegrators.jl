@@ -433,18 +433,10 @@ function index_selection(U::Matrix, S::Vector, alg::LDEIM)
         r = min(alg.rmax, length(S)+1)
         return index_selection(U, r, alg)
     else
-        #cutoff = findfirst(x -> x < alg.tol*alg.elasticity, S)
         cutoff = findlast(x -> x > alg.tol*alg.elasticity, S)
         if isnothing(cutoff)
             cutoff = 1
         end
-        #cutoff = length(S)
-        # for σ in reverse(S)
-        #     if σ > alg.tol*alg.elasticity
-        #         break
-        #     end
-        #     cutoff -= 1
-        # end
         return index_selection(U, cutoff, alg)
     end
 end

@@ -219,18 +219,6 @@ function alg_cache(prob::MatrixDataProblem, alg::UnconventionalAlgorithm, u, dt;
                                          prob.y, ycurr, yprev, Δy, nothing)
 end
 
-# function init(prob::AbstractDLRProblem, alg::UnconventionalAlgorithm, dt)
-#     t0, tf = prob.tspan
-#     @assert tf > t0 "Integration in reverse time direction is not supported"
-#     u = deepcopy(prob.u0)
-#     # initialize solution 
-#     sol = init_sol(dt, t0, tf, prob.u0)
-#     # initialize cache
-#     cache = alg_cache(prob, alg, u, dt, t0 = t0)
-#     sol.Y[1] = deepcopy(prob.u0) 
-#     return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)   
-# end
-
 function unconventional_step!(u, cache, t, dt, ::Type{<:MatrixDataProblem})
     @unpack y, ycurr, yprev, Δy = cache
     update_data!(ycurr, y, t, dt)

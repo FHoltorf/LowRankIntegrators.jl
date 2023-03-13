@@ -147,11 +147,4 @@ function update_sol!(integrator::AbstractDLRIntegrator, idx)
     integrator.sol.r[idx] = LowRankArithmetic.rank(integrator.u)
     integrator.sol.r_DEIM[idx] = rank_DEIM(integrator.cache)
     integrator.sol.idcs_DEIM[idx] = interpolation_indices(integrator.cache)
-    #else
-    #     push!(integrator.sol.Y, deepcopy(integrator.u))
-    #     push!(integrator.sol.t, integrator.t)
-    #     push!(integrator.sol.r[integrator.iter + 1], LowRankArithmetic.rank(integrator.u))
-    #     push!(integrator.sol.r_DEIM[integrator.iter + 1], rank_DEIM(integrator.cache))
-    #     push!(integrator.sol.r_DEIM[integrator.iter + 1], indices(integrator.cache))
-    # end
 end

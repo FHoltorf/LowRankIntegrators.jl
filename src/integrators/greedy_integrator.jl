@@ -46,18 +46,6 @@ function alg_cache(prob::MatrixHybridProblem, alg::GreedyIntegrator, u, dt; t0 =
     return GreedyIntegrator_Cache(prob.y, X, XZ, nothing, nothing, ZIntegrator)
 end
 
-# function init(prob::MatrixDataProblem, alg::GreedyIntegrator, dt)
-#     t0, tf = prob.tspan
-#     @assert tf > t0 "Integration in reverse time direction is not supported"
-#     u = deepcopy(prob.u0)
-#     # initialize solution 
-#     sol = init_sol(dt, t0, tf, prob.u0)
-#     # initialize cache
-#     cache = alg_cache(prob, alg, u, dt)
-#     sol.Y[1] = deepcopy(prob.u0)
-#     return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)
-# end
-
 function init(prob::MatrixHybridProblem, alg::GreedyIntegrator, dt)
     t0, tf = prob.tspan
     @assert tf > t0 "Integration in reverse time direction is not supported"

@@ -91,18 +91,6 @@ function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorit
                                                      nothing, nothing, nothing, nothing)
 end
 
-# function init(prob::AbstractDLRProblem, alg::RankAdaptiveUnconventionalAlgorithm, dt)
-#     t0, tf = prob.tspan
-#     @assert tf > t0 "Integration in reverse time direction is not supported"
-#     u = deepcopy(prob.u0)
-#     # initialize solution 
-#     sol = init_sol(dt, t0, tf, prob.u0)
-#     # initialize cache
-#     cache = alg_cache(prob, alg, u, dt; t0 = t0)
-#     sol.Y[1] = deepcopy(prob.u0) # add initial point to solution object
-#     return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)   
-# end
-
 function alg_cache(prob::MatrixDataProblem, alg::RankAdaptiveUnconventionalAlgorithm, u, dt; t0 = prob.tspan[1])
     # creates caches for frequently used arrays by performing the first time step
     @unpack y = prob
