@@ -185,8 +185,8 @@ using LowRankIntegrators, LinearAlgebra
     U, V = X0_lr.U, X0_lr.V
     dX_test = similar(dX0)
     for alg in idx_selections
-        row_idcs = index_selection(dX0_lr.U, alg)
-        col_idcs = index_selection(dX0_lr.V, alg)
+        row_idcs = index_selection(init_range, alg)
+        col_idcs = index_selection(init_corange, alg)
 
         # interpolators
         Π_corange = DEIMInterpolator(col_idcs, init_corange/init_corange[col_idcs,:])
