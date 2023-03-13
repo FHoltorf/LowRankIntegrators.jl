@@ -21,7 +21,7 @@ function GreedyIntegrator(; Z_alg = Tsit5(), Z_kwargs = Dict{Symbol,Any}())
     return GreedyIntegrator(params)
 end
 
-function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::TwoFactorRepresentation, dt)
+function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::TwoFactorRepresentation, dt; t0 = prob.tspan[1])
     X = zeros(size(u))
     r = rank(u)
     n = size(X,1)
@@ -29,7 +29,7 @@ function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::TwoFactorR
     return GreedyIntegrator_Cache(prob.y, X, XZ, nothing, nothing, nothing)
 end
 
-function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::SVDLikeRepresentation, dt)
+function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::SVDLikeRepresentation, dt; t0 = prob.tspan[1])
     X = zeros(size(u))
     r = rank(u)
     n, m = size(X)
@@ -38,7 +38,7 @@ function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::SVDLikeRep
     return GreedyIntegrator_Cache(prob.y, X, nothing, XV, XU, nothing)
 end
 
-function alg_cache(prob::MatrixHybridProblem, alg::GreedyIntegrator, u, dt)
+function alg_cache(prob::MatrixHybridProblem, alg::GreedyIntegrator, u, dt; t0 = prob.tspan[1])
     XZ = zeros(size(u,1), rank(u))
     X = zeros(size(u)...)
     ZProblem = ODEProblem(prob.f, u.Z, prob.tspan, u.U)
