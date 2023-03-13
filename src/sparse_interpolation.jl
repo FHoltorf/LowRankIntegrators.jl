@@ -1,4 +1,4 @@
-import LinearAlgebra.adjoint
+import LinearAlgebra: adjoint, rank
 import Base.size
 
 """
