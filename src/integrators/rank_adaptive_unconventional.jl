@@ -47,7 +47,7 @@ end
 function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorithm, u, dt; t0 = prob.tspan[1])
     # allocate memory for frequently accessed arrays
     tspan = (t0, t0+dt)
-    r = LowRankArithmetic.rank(u)
+    r = rank(u)
     n, m = size(u)
     US = u.U*u.S
     VS = u.V*u.S'

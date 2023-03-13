@@ -1,4 +1,4 @@
-using LowRankIntegrators
+using LinearAlgebra, LowRankIntegrators
 using Test
 
 include("data_agnostic_approximation.jl")

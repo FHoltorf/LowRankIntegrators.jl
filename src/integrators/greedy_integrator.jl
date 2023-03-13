@@ -31,7 +31,7 @@ end
 
 function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::SVDLikeRepresentation, dt; t0 = prob.tspan[1])
     X = zeros(size(u))
-    r = LowRankArithmetic.rank(u)
+    r = rank(u)
     n, m = size(X)
     XV = zeros(n,r)
     XU = zeros(m,r) 

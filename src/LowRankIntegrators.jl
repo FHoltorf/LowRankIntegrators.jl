@@ -1,8 +1,8 @@
 module LowRankIntegrators
-using Reexport, UnPack, DocStringExtensions
+using Reexport, UnPack, DocStringExtensions, LinearAlgebra
 import DifferentialEquations: step!, set_u!, init
 
-@reexport using LinearAlgebra, DifferentialEquations, LowRankArithmetic
+@reexport using DifferentialEquations, LowRankArithmetic
 
 include("utils.jl")
 export orthonormalize!, GradientDescent, QR, SVD, SecondMomentMatching, normal_component
