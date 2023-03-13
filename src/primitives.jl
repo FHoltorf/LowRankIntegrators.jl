@@ -116,7 +116,7 @@ function init_sol(dt, t0, tf, u0, save_increment)
     Y = Vector{typeof(u0)}(undef, n_eff)
     r = Vector{Int}(undef, n_eff)
     r_deim = Vector{Int}(undef, n_eff)
-    t = collect(range(t0, tf, length=n_eff))
+    t = collect(t_int[save_idcs])
     interpolation_idcs = Vector{Tuple{Vector{Int},Vector{Int}}}(undef, n_eff)
     return DLRSolution(Y, t, r, r_deim, interpolation_idcs), dt, t_int, save_idcs  
 end
@@ -135,8 +135,9 @@ function init_sol(dt::Int, t0::Int, tf::Int, u0, save_increment::Int)
     Y = Vector{typeof(u0)}(undef, n_eff)
     r = Vector{Int}(undef, n_eff)
     r_deim = Vector{Int}(undef, n_eff)
+    t = collect(t_int[save_idcs])
     interpolation_idcs = Vector{Tuple{Vector{Int},Vector{Int}}}(undef, n_eff)
-    return DLRSolution(Y, steps, r, r_deim, interpolation_idcs), dt, t_int, save_idcs
+    return DLRSolution(Y, t, r, r_deim, interpolation_idcs), dt, t_int, save_idcs
 end
 
 function update_sol!(integrator::AbstractDLRIntegrator, idx)
