@@ -227,10 +227,18 @@ using LowRankIntegrators, LinearAlgebra
         @test norm(dS_test - U'*dX0_lr*V)/norm(Matrix(U'*X0_lr*V)) < 1e-8
     end
 
-    r_deim = 5
+    r_deim = 10
     interpolation = SparseInterpolation(DEIM(rmax=r_deim, rmin=r_deim, tol = 1.0, elasticity=1e-1), dX0_lr.U[:,1:r_deim], dX0_lr.V[:,1:r_deim])
     alg_deim = UnconventionalAlgorithm(interpolation) 
 
     deim_prob = MatrixDEProblem(burgers_components, X0_lr, (0.0,1.0))
-    deim_sol = LowRankIntegrators.solve(deim_prob, alg_deim, 1e-3, save_increment=10)
+    deim_sol_ref = LowRankIntegrators.solve(deim_prob, alg_deim, 1e-3, save_increment=10)
+    
+    algs = [ProjectorSplitting(PrimalLieTrotter(), interpolation),
+            ProjectorSplitting(DualLieTrotter(), interpolation), 
+            ProjectorSplitting(Strang(), interpolation)]
+    for alg in algs
+        deim_sol = LowRankIntegrators.solve(deim_prob, alg_deim, 1e-3, save_increment=10)
+        @test norm(Matrix(deim_sol.Y[end] - deim_sol_ref.Y[end]))/norm(Matrix(deim_sol_ref.Y[end])) < 1e-3
+    end
 end
