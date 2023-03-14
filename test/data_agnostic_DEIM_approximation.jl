@@ -228,17 +228,29 @@ using LowRankIntegrators, LinearAlgebra
     end
 
     r_deim = 10
-    interpolation = SparseInterpolation(DEIM(rmax=r_deim, rmin=r_deim, tol = 1.0, elasticity=1e-1), dX0_lr.U[:,1:r_deim], dX0_lr.V[:,1:r_deim])
-    alg_deim = UnconventionalAlgorithm(interpolation) 
+    dt = 1e-4
+    sub_alg = SSPRK22()
+    sub_kwargs = Dict(:dt => dt)
+    kwargs = Dict(:K_alg => sub_alg, :S_alg => sub_alg, :L_alg => sub_alg,
+                  :K_kwargs => sub_kwargs, :S_kwargs => sub_kwargs, :L_kwargs => sub_kwargs)
+    idx_selection_algs = [QDEIM(), 
+                          DEIM(),
+                          LDEIM(rmax = 2*r_deim, rmin = 5, tol = 1.0, elasticity=1e-1)]
+    for idx_alg in idx_selection_algs
+        interpolation = SparseInterpolation(idx_alg, 
+                                            dX0_lr.U[:,1:r_deim], dX0_lr.V[:,1:r_deim])
+        alg_deim = UnconventionalAlgorithm(interpolation; kwargs...) 
 
-    deim_prob = MatrixDEProblem(burgers_components, X0_lr, (0.0,1.0))
-    deim_sol_ref = LowRankIntegrators.solve(deim_prob, alg_deim, 1e-3, save_increment=10)
-    
-    algs = [ProjectorSplitting(PrimalLieTrotter(), interpolation),
-            ProjectorSplitting(DualLieTrotter(), interpolation), 
-            ProjectorSplitting(Strang(), interpolation)]
-    for alg in algs
-        deim_sol = LowRankIntegrators.solve(deim_prob, alg_deim, 1e-3, save_increment=10)
-        @test norm(Matrix(deim_sol.Y[end] - deim_sol_ref.Y[end]))/norm(Matrix(deim_sol_ref.Y[end])) < 1e-3
+        deim_prob = MatrixDEProblem(burgers_components, X0_lr, (0.0,1.0))
+        deim_sol_ref = LowRankIntegrators.solve(deim_prob, alg_deim, dt, save_increment=100)
+
+        algs = [ProjectorSplitting(PrimalLieTrotter(), interpolation; kwargs...),
+                ProjectorSplitting(DualLieTrotter(), interpolation; kwargs...), 
+                ProjectorSplitting(Strang(), interpolation; kwargs...)]
+        for alg in algs
+            deim_sol = LowRankIntegrators.solve(deim_prob, alg_deim, dt, save_increment=100)
+            mismatch = norm(Matrix(deim_sol.Y[end] - deim_sol_ref.Y[end]))/norm(Matrix(deim_sol_ref.Y[end]))
+            @test mismatch < 1e-8
+        end
     end
 end

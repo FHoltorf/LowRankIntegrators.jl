@@ -370,13 +370,13 @@ function index_selection(U,::DEIM)
         r = abs.(U[:, 1])
         indices[1] = argmax(r)
         for l in 2:m
-            U = U[:, 1:(l - 1)]
+            Uₗ = U[:, 1:(l - 1)]
             P = indices[1:(l - 1)]
-            PᵀU = U[P, :]
+            PᵀUₗ = Uₗ[P, :]
             uₗ = U[:, l]
             Pᵀuₗ = uₗ[P, :]
-            c = vec(PᵀU \ Pᵀuₗ)
-            mul!(r, U, c)
+            c = vec(PᵀUₗ \ Pᵀuₗ)
+            mul!(r, Uₗ, c)
             @. r = abs(uₗ - r)
             indices[l] = argmax(r)
         end
