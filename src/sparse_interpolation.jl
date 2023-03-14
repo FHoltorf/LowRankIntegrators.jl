@@ -251,11 +251,6 @@ function eval_cols!(dx, Π::SparseFunctionInterpolator, x, p, t, idcs)
     Π.F.cols!(dx, x, p, t, idcs)
 end
 
-"""
-    $(TYPEDSIGNATURES)
-
-    functor for inplace evaluation of `SparseFunctionInterpolator`s. 
-"""
 function (Π::SparseFunctionInterpolator{IP, fType, T})(dx, x, p, t) where {IP <: DEIMInterpolator, fType, T}
     eval!(Π, x, p, t)
     mul!(dx, Π.interpolator.weights, Π.cache.rows)
