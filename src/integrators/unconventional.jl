@@ -52,21 +52,12 @@ struct UnconventionalAlgorithm_Cache{uType,
     interpolation_cache::dType
 end
 
-struct UnconventionalDEIM_Cache
-    params::SparseInterpolation
-    u_prev::SVDLikeRepresentation
-    Π::SparseFunctionInterpolator
-    Π_K::SparseFunctionInterpolator
-    Π_L::SparseFunctionInterpolator
-    Π_S::SparseFunctionInterpolator
-end
-
 rank_DEIM(cache::UnconventionalAlgorithm_Cache) = rank_DEIM(cache.interpolation_cache)
 rank_DEIM(::Nothing) = 0
-rank_DEIM(cache::UnconventionalDEIM_Cache) = rank(cache.Π)[1]
+rank_DEIM(cache::OnTheFlyInterpolation_Cache) = rank(cache.Π)[1]
 interpolation_indices(cache::UnconventionalAlgorithm_Cache) = interpolation_indices(cache.interpolation_cache)
 interpolation_indices(::Nothing) = (Int[],Int[])
-interpolation_indices(cache::UnconventionalDEIM_Cache) = interpolation_indices(cache.Π)
+interpolation_indices(cache::OnTheFlyInterpolation_Cache) = interpolation_indices(cache.Π)
 
 function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt; t0 = prob.tspan[1])
     # allocate memory for frequently accessed arrays
@@ -188,7 +179,7 @@ function alg_cache(prob::MatrixDEProblem{fType, uType, tType},
     SProblem = ODEProblem(S_rhs, M*u.S*N', tspan, p_S)
     SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
     
-    interpolation_cache = UnconventionalDEIM_Cache(alg.alg_params.interpolation, deepcopy(u),
+    interpolation_cache = OnTheFlyInterpolation_Cache(alg.alg_params.interpolation, deepcopy(u),
                                                    Π, Π_K, Π_L, Π_S)
     return UnconventionalAlgorithm_Cache(US, VS, M, N, QRK, QRL, 
                                          SIntegrator, LIntegrator, KIntegrator,
