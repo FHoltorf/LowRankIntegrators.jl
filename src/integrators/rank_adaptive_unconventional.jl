@@ -69,6 +69,9 @@ function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorit
     end
     KProblem = ODEProblem(K_rhs, US, tspan, u.V)
     KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
+    step!(KIntegrator, 0.01*dt, true)
+    set_t!(KIntegrator, t0)
+
     if isnothing(alg.alg_params.L_rhs)
         L_rhs = function (VS, U, t)
                     return Matrix(prob.f(TwoFactorRepresentation(U,VS),t)'*U)
@@ -76,9 +79,11 @@ function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorit
     else
         L_rhs = alg.alg_params.L_rhs
     end
-    
     LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
     LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
+    step!(LIntegrator, 0.01*dt, true)
+    set_t!(LIntegrator, t0)
+
     if isnothing(alg.alg_params.S_rhs)
         S_rhs = function (S, (U,V), t)
                     return Matrix(U'*prob.f(SVDLikeRepresentation(U,S,V),t)*V)
@@ -88,6 +93,8 @@ function alg_cache(prob::MatrixDEProblem, alg::RankAdaptiveUnconventionalAlgorit
     end
     SProblem = ODEProblem(S_rhs, M*u.S*N', tspan, [Uhat, Vhat])
     SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
+    step!(SIntegrator, 0.01*dt, true)
+    set_t!(SIntegrator, t0)
 
     return RankAdaptiveUnconventionalAlgorithm_Cache(US, Uhat, VS, Vhat, M, N, 
                                                      SIntegrator, SProblem, LIntegrator, LProblem,
@@ -142,6 +149,8 @@ function alg_cache(prob::MatrixDEProblem{fType, uType, tType},
     p_K = (Π_K, u.V, ())
     KProblem = ODEProblem(K_rhs, US, tspan, p_K)
     KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
+    step!(KIntegrator, 0.01*dt, true)
+    set_t!(KIntegrator, t0)
 
     if isnothing(alg.alg_params.L_rhs)
         L_rhs = function (dL, L, p, t) 
@@ -157,6 +166,8 @@ function alg_cache(prob::MatrixDEProblem{fType, uType, tType},
     p_L = (Π_L, u.U, ())
     LProblem = ODEProblem(L_rhs, VS, tspan, p_L)
     LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
+    step!(LIntegrator, 0.01*dt, true)
+    set_t!(LIntegrator, t0)
 
     if isnothing(alg.alg_params.S_rhs)
         S_rhs = function (dS, S, p, t)
@@ -174,6 +185,8 @@ function alg_cache(prob::MatrixDEProblem{fType, uType, tType},
 
     SProblem = ODEProblem(S_rhs, M*u.S*N', tspan, p_S)
     SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
+    step!(SIntegrator, 0.01*dt, true)
+    set_t!(SIntegrator, t0)
 
     interpolation_cache = OnTheFlyInterpolation_Cache(alg.alg_params.interpolation, deepcopy(u),
                                                       Π, Π_K, Π_L, Π_S)
@@ -226,31 +239,44 @@ function alg_recache(cache::RankAdaptiveUnconventionalAlgorithm_Cache, alg::Rank
     # the following sequence can probably somehow be handled via dispatch in a simpler way
     if isnothing(KProblem)
         KIntegrator = MatrixDataIntegrator(Δy, US, I, u.V, 1)
-    elseif isnothing(interpolation_cache)
-        KProblem = remake(KProblem, u0 = US, p = u.V, tspan = (t, t+1.0))
-        KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
     else
-        KProblem = remake(KProblem, u0 = US, p = (interpolation_cache.Π_K, u.V, ()), tspan = (t, t+1.0))
-        KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
+        if isnothing(interpolation_cache)
+            KProblem = remake(KProblem, u0 = US, p = u.V, tspan = (t, t+1.0))
+            KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
+        else
+            KProblem = remake(KProblem, u0 = US, p = (interpolation_cache.Π_K, u.V, ()), tspan = (t, t+1.0))
+            KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
+        end
+        step!(KIntegrator, 0.01*dt, true)
+        set_t!(KIntegrator, t0)
     end
+
     if isnothing(LProblem)
         LIntegrator = MatrixDataIntegrator(Δy', VS, I, u.U, 1)
-    elseif isnothing(interpolation_cache)
-        LProblem = remake(LProblem, u0 = VS, p = u.U, tspan = (t, t+1.0))
-        LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
     else
-        LProblem = remake(LProblem, u0 = VS, p = (interpolation_cache.Π_L, u.U, ()), tspan = (t, t+1.0))
-        LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
+        if isnothing(interpolation_cache)
+            LProblem = remake(LProblem, u0 = VS, p = u.U, tspan = (t, t+1.0))
+            LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
+        else
+            LProblem = remake(LProblem, u0 = VS, p = (interpolation_cache.Π_L, u.U, ()), tspan = (t, t+1.0))
+            LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
+        end
+        step!(LIntegrator, 0.01*dt, true)
+        set_t!(LIntegrator, t0)
     end
 
     if isnothing(SProblem)
         SIntegrator = MatrixDataIntegrator(Δy, zeros(2r,2r), Uhat, Vhat, 1)
-    elseif isnothing(interpolation_cache)
-        SProblem = remake(SProblem, u0 = zeros(2*r,2*r), p = [Uhat, Vhat], tspan = (t, t+1.0))
-        SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
     else
-        SProblem = remake(SProblem, u0 = zeros(2*r,2*r), p = (interpolation_cache.Π_S, U_hat, V_hat, ()), tspan = (t, t+1.0))
-        SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
+        if isnothing(interpolation_cache)
+            SProblem = remake(SProblem, u0 = zeros(2*r,2*r), p = [Uhat, Vhat], tspan = (t, t+1.0))
+            SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
+        else
+            SProblem = remake(SProblem, u0 = zeros(2*r,2*r), p = (interpolation_cache.Π_S, U_hat, V_hat, ()), tspan = (t, t+1.0))
+            SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
+        end
+        step!(SIntegrator, 0.01*dt, true)
+        set_t!(SIntegrator, t0)
     end
 
     return RankAdaptiveUnconventionalAlgorithm_Cache(US, Uhat, VS, Vhat, M, N, SIntegrator, SProblem, LIntegrator, LProblem,

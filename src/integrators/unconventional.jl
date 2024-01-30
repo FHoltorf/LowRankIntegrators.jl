@@ -80,7 +80,9 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt; t
     end
     KProblem = ODEProblem(K_rhs, US, tspan, u.V)
     KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
-    
+    step!(KIntegrator, 0.01*dt, true)
+    set_t!(KIntegrator, t0)
+
     if isnothing(alg.alg_params.L_rhs)
         L_rhs = function (VS, U, t)
                     return Matrix(prob.f(TwoFactorRepresentation(U,VS),t)'*U)
@@ -90,7 +92,9 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt; t
     end
     LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
     LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
-    
+    step!(LIntegrator, 0.01*dt, true)
+    set_t!(LIntegrator, t0)
+
     if isnothing(alg.alg_params.S_rhs)
         S_rhs = function (S, (U,V), t)
                     return Matrix(U'*prob.f(SVDLikeRepresentation(U,S,V),t)*V)
@@ -100,17 +104,17 @@ function alg_cache(prob::MatrixDEProblem, alg::UnconventionalAlgorithm, u, dt; t
     end
     SProblem = ODEProblem(S_rhs, M*u.S*N', tspan, (u.U, u.V))
     SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
-    
+    step!(SIntegrator, 0.01*dt, true)
+    set_t!(SIntegrator, t0)
+
     return UnconventionalAlgorithm_Cache(US, VS, M, N, QRK, QRL, 
                                          SIntegrator, LIntegrator, KIntegrator,
                                          nothing, nothing, nothing, nothing, nothing)
 end
 
-
 function alg_cache(prob::MatrixDEProblem{fType, uType, tType}, 
                    alg::UnconventionalAlgorithm, u, dt; t0 = prob.tspan[1]) where
                    {fType <: ComponentFunction, uType, tType}
-    # allocate memory for frequently accessed arrays
     tspan = (t0,t0+dt)
     
     @unpack tol, rmin, rmax, 
@@ -146,7 +150,9 @@ function alg_cache(prob::MatrixDEProblem{fType, uType, tType},
     p_K = (Π_K, u.V, ())
     KProblem = ODEProblem(K_rhs, US, tspan, p_K)
     KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
-    
+    step!(KIntegrator, 0.01*dt, true)
+    set_t!(KIntegrator, t0)
+
     if isnothing(alg.alg_params.L_rhs)
         L_rhs = function (dL, L, p, t) 
                    Π_L, U0, params = p
@@ -161,7 +167,9 @@ function alg_cache(prob::MatrixDEProblem{fType, uType, tType},
     p_L = (Π_L, u.U, ())
     LProblem = ODEProblem(L_rhs, VS, tspan, p_L)
     LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
-    
+    step!(LIntegrator, 0.01*dt, true)
+    set_t!(LIntegrator, t0)
+
     if isnothing(alg.alg_params.S_rhs)
         S_rhs = function (dS, S, p, t)
                     Π_S, U1, V1, params = p
@@ -178,9 +186,11 @@ function alg_cache(prob::MatrixDEProblem{fType, uType, tType},
 
     SProblem = ODEProblem(S_rhs, M*u.S*N', tspan, p_S)
     SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
-    
+    step!(SIntegrator, 0.01*dt, true)
+    set_t!(SIntegrator, t0)
+
     interpolation_cache = OnTheFlyInterpolation_Cache(alg.alg_params.interpolation, deepcopy(u),
-                                                   Π, Π_K, Π_L, Π_S)
+                                                      Π, Π_K, Π_L, Π_S)
     return UnconventionalAlgorithm_Cache(US, VS, M, N, QRK, QRL, 
                                          SIntegrator, LIntegrator, KIntegrator,
                                          nothing, nothing, nothing, nothing, interpolation_cache)
@@ -282,7 +292,7 @@ function unconventional_deim_step!(u, cache, t, dt)
     mul!(N,Matrix(QRL.Q)',u.V)
     u.V .= Matrix(QRL.Q)
     u.U .= Matrix(QRK.Q)
-    
+
     # update core interpolator
     mul!(Π_S.interpolator.range.weights, u.U', Π.interpolator.range.weights)
     mul!(Π_S.interpolator.corange.weights, u.V', Π.interpolator.corange.weights)

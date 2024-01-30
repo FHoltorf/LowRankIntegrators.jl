@@ -24,7 +24,7 @@ function select_idcs(F::SVDLikeRepresentation, selection_alg::IndexSelectionAlgo
     row_idcs = index_selection(F_svd.U, diag(F_svd.S), selection_alg)
     col_idcs = index_selection(F_svd.V, diag(F_svd.S), selection_alg)
     UF = F_svd.U[:, 1:length(row_idcs)]
-    VF = F_trunc.V[:, 1:length(col_idcs)]
+    VF = F_svd.V[:, 1:length(col_idcs)]
     return UF, VF, row_idcs, col_idcs
 end
 

@@ -50,7 +50,6 @@ end
 function alg_cache(prob::MatrixDEProblem, alg::ProjectorSplitting, u, dt; t0 = prob.tspan[1])
     # allocate memory for frequently accessed arrays
     tspan = (t0,t0+dt)
-
     US = u.U*u.S
     VS = u.V*u.S'
     QRK = qr(US)
@@ -64,7 +63,9 @@ function alg_cache(prob::MatrixDEProblem, alg::ProjectorSplitting, u, dt; t0 = p
         K_rhs = alg.alg_params.K_rhs
     end
     KProblem = ODEProblem(K_rhs, US, tspan, u.V)
-    KIntegrator = init(KProblem, alg.alg_params.K_alg, save_everystep=false, alg.alg_params.K_kwargs...)
+    KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
+    step!(KIntegrator, 0.01*dt, true)
+    set_t!(KIntegrator, t0)
     
     if isnothing(alg.alg_params.S_rhs)
         S_rhs = function (S, (U,V), t)
@@ -74,7 +75,9 @@ function alg_cache(prob::MatrixDEProblem, alg::ProjectorSplitting, u, dt; t0 = p
         S_rhs = alg.alg_params.S_rhs
     end
     SProblem = ODEProblem(S_rhs, QRK.R, tspan, (u.U, u.V))
-    SIntegrator = init(SProblem, alg.alg_params.S_alg, save_everystep=false, alg.alg_params.S_kwargs...)
+    SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
+    step!(SIntegrator, 0.01*dt, true)
+    set_t!(SIntegrator, t0)
 
     if isnothing(alg.alg_params.L_rhs)
         L_rhs = function (VS, U, t)
@@ -84,8 +87,10 @@ function alg_cache(prob::MatrixDEProblem, alg::ProjectorSplitting, u, dt; t0 = p
         L_rhs = alg.alg_params.L_rhs
     end
     LProblem = ODEProblem(L_rhs, VS, tspan, u.U)
-    LIntegrator = init(LProblem, alg.alg_params.L_alg, save_everystep=false, alg.alg_params.L_kwargs...)
-    
+    LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
+    step!(LIntegrator, 0.01*dt, true)
+    set_t!(LIntegrator, t0)
+
     return ProjectorSplitting_Cache(US, VS, QRK, QRL, 
                                     SIntegrator, LIntegrator, KIntegrator,
                                     nothing, nothing, nothing, nothing, nothing)
@@ -126,11 +131,13 @@ function alg_cache(prob::MatrixDEProblem{fType, uType, tType},
     p_K = (Π_K, u.V, ())
     KProblem = ODEProblem(K_rhs, US, tspan, p_K)
     KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
-    
+    step!(KIntegrator,0.01*dt,true)
+    set_t!(KIntegrator, t0)
+
     if isnothing(alg.alg_params.S_rhs)
         S_rhs = function (dS, S, p, t)
                     Π_S, U1, V1, params = p
-                    -Π_S(dS, SVDLikeRepresentation(U1,S,V1), params, t)
+                    Π_S(dS, SVDLikeRepresentation(U1,S,V1), params, t) 
                 end
     else
         S_rhs = alg.alg_params.S_rhs
@@ -143,7 +150,9 @@ function alg_cache(prob::MatrixDEProblem{fType, uType, tType},
 
     SProblem = ODEProblem(S_rhs, QRK.R, tspan, p_S)
     SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
-    
+    step!(SIntegrator,0.01*dt,true)
+    set_t!(SIntegrator, t0)
+
     if isnothing(alg.alg_params.L_rhs)
         L_rhs = function (dL, L, p, t) 
                     Π_L, U0, params = p
@@ -158,10 +167,12 @@ function alg_cache(prob::MatrixDEProblem{fType, uType, tType},
     p_L = (Π_L, u.U, ())
     LProblem = ODEProblem(L_rhs, VS, tspan, p_L)
     LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
-    
+    step!(LIntegrator,0.01*dt,true)
+    set_t!(LIntegrator, t0)
+
     
     interpolation_cache = OnTheFlyInterpolation_Cache(alg.alg_params.interpolation, deepcopy(u),
-                                                    Π, Π_K, Π_L, Π_S)
+                                                      Π, Π_K, Π_L, Π_S)
     return ProjectorSplitting_Cache(US, VS, QRK, QRL, 
                                     SIntegrator, LIntegrator, KIntegrator,
                                     nothing, nothing, nothing, nothing, interpolation_cache)
@@ -282,15 +293,16 @@ function primal_LT_deim_step!(u, cache, t, dt)
     set_u!(KIntegrator, US)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
-    QRL = qr!(US)
-    u.U .= Matrix(QRL.Q)  
-    mul!(Π_S.interpolator.range.weights, u.U', Π.interpolator.range.weights)
- 
+    QRK = qr!(US)
+    u.U .= Matrix(QRK.Q)  
+
     # S step
-    set_u!(SIntegrator, QRL.R) 
+    mul!(Π_S.interpolator.range.weights, u.U', Π.interpolator.range.weights, -1.0, 0)
+    set_u!(SIntegrator, QRK.R)
     step!(SIntegrator, dt, true)
 
     # L step
+    mul!(Π_L.interpolator.weights, u.U', Π.interpolator.range.weights)
     mul!(VS,u.V,SIntegrator.u')
     set_u!(LIntegrator, VS)
     step!(LIntegrator, dt, true)
@@ -325,14 +337,15 @@ function dual_LT_deim_step!(u, cache, t, dt)
     VS .= LIntegrator.u
     QRL = qr!(VS)
     u.V .= Matrix(QRL.Q)
-    mul!(Π_S.interpolator.corange.weights, u.V', Π.interpolator.corange.weights)
-
+    
     # S step
+    mul!(Π_S.interpolator.corange.weights, u.V', Π.interpolator.corange.weights, -1, 0)
     set_u!(SIntegrator, Matrix(QRL.R'))
     step!(SIntegrator, dt, true)
     
     # K step
     mul!(US,u.U,SIntegrator.u)
+    mul!(Π_K.interpolator.parent.weights, u.V', Π.interpolator.corange.weights)
     set_u!(KIntegrator, US)
     step!(KIntegrator, dt, true)
     US .= KIntegrator.u
