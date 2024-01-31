@@ -77,6 +77,7 @@ function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt; save_inc
     while integrator.iter < length(t_int) - 1
         step!(integrator, alg, dt)
         next!(progressmeter)
+        flush(stdout)
         if integrator.iter + 1 == save_idcs[k] 
             update_sol!(integrator, k)
             k += 1 
