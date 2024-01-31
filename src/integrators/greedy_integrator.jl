@@ -1,5 +1,5 @@
 # greedy approach to fit 
-struct GreedyIntegrator_Cache
+struct GreedyIntegrator_Cache <: AbstractDLRAlgorithm_Cache
     Y
     X
     XZ
@@ -21,7 +21,7 @@ function GreedyIntegrator(; Z_alg = Tsit5(), Z_kwargs = Dict{Symbol,Any}())
     return GreedyIntegrator(params)
 end
 
-function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::TwoFactorRepresentation, dt)
+function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::TwoFactorRepresentation, dt; t0 = prob.tspan[1])
     X = zeros(size(u))
     r = rank(u)
     n = size(X,1)
@@ -29,7 +29,7 @@ function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::TwoFactorR
     return GreedyIntegrator_Cache(prob.y, X, XZ, nothing, nothing, nothing)
 end
 
-function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::SVDLikeRepresentation, dt)
+function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::SVDLikeRepresentation, dt; t0 = prob.tspan[1])
     X = zeros(size(u))
     r = rank(u)
     n, m = size(X)
@@ -38,24 +38,12 @@ function alg_cache(prob::MatrixDataProblem, alg::GreedyIntegrator, u::SVDLikeRep
     return GreedyIntegrator_Cache(prob.y, X, nothing, XV, XU, nothing)
 end
 
-function alg_cache(prob::MatrixHybridProblem, alg::GreedyIntegrator, u, dt)
+function alg_cache(prob::MatrixHybridProblem, alg::GreedyIntegrator, u, dt; t0 = prob.tspan[1])
     XZ = zeros(size(u,1), rank(u))
     X = zeros(size(u)...)
     ZProblem = ODEProblem(prob.f, u.Z, prob.tspan, u.U)
     ZIntegrator = init(ZProblem, alg.alg_params.Z_alg; save_everystep=false, alg.alg_params.Z_kwargs...)
     return GreedyIntegrator_Cache(prob.y, X, XZ, nothing, nothing, ZIntegrator)
-end
-
-function init(prob::MatrixDataProblem, alg::GreedyIntegrator, dt)
-    t0, tf = prob.tspan
-    @assert tf > t0 "Integration in reverse time direction is not supported"
-    u = deepcopy(prob.u0)
-    # initialize solution 
-    sol = init_sol(dt, t0, tf, prob.u0)
-    # initialize cache
-    cache = alg_cache(prob, alg, u, dt)
-    sol.Y[1] = deepcopy(prob.u0)
-    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0)
 end
 
 function init(prob::MatrixHybridProblem, alg::GreedyIntegrator, dt)

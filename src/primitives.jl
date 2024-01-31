@@ -46,6 +46,9 @@ end
 mutable struct DLRSolution{solType, tType} <: AbstractDLRSolution
     Y::Vector{solType}
     t::Vector{tType}
+    r::Vector{Int}
+    r_DEIM::Vector{Int}
+    idcs_DEIM::Vector{Tuple{Vector{Int}, Vector{Int}}}
 end
 
 """
@@ -65,13 +68,22 @@ end
 """
     solves the given problem with the specified algorithm and step size
 """
-function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt)
-    integrator = init(prob, alg, dt)
-    T = prob.tspan[2] - prob.tspan[1]
-    while (prob.tspan[2]-integrator.t)/T > 1e-8 
+function solve(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt; save_increment::Int=1)
+    println("Initialize integrator ...")
+    integrator, dt, t_int, save_idcs = init(prob, alg, dt, save_increment)
+    println("... initialization complete. Start Integration ...")
+    k = 2
+    progressmeter = Progress(length(t_int))
+    while integrator.iter < length(t_int) - 1
         step!(integrator, alg, dt)
-        update_sol!(integrator)
+        next!(progressmeter)
+        flush(stdout)
+        if integrator.iter + 1 == save_idcs[k] 
+            update_sol!(integrator, k)
+            k += 1 
+        end
     end
+    println("... integration complete.")
     return integrator.sol
 end
 function solve(prob::MatrixDataProblem, alg::AbstractDLRAlgorithm)
@@ -79,26 +91,60 @@ function solve(prob::MatrixDataProblem, alg::AbstractDLRAlgorithm)
     return solve(prob, alg, 1)
 end
 
-function update_sol!(integrator::AbstractDLRIntegrator)
-    if integrator.iter <= length(integrator.sol.Y) - 1
-        integrator.sol.Y[integrator.iter + 1] = deepcopy(integrator.u)
-        integrator.sol.t[integrator.iter + 1] = integrator.t
-    else
-        push!(integrator.sol.Y, deepcopy(integrator.u))
-        push!(integrator.sol.t, integrator.t)
-    end
+function init(prob::AbstractDLRProblem, alg::AbstractDLRAlgorithm, dt, save_increment::Int)
+    t0, tf = prob.tspan
+    @assert tf > t0 "Integration in reverse time direction is not supported"
+    u = deepcopy(prob.u0)
+    # initialize solution 
+    sol, dt, t_int, save_idcs = init_sol(dt, t0, tf, prob.u0, save_increment)
+    # initialize cache
+    cache = alg_cache(prob, alg, u, dt, t0 = t0)
+    sol.Y[1] = deepcopy(prob.u0) 
+    return DLRIntegrator(u, t0, dt, sol, alg, cache, typeof(prob), 0), dt, t_int, save_idcs  
 end
 
-function init_sol(dt, t0, tf, u0) 
+function init_sol(dt, t0, tf, u0, save_increment) 
     n = floor(Int,(tf-t0)/dt) + 1 
-    # compute more sensible dt # rest will be handled via interpolation/save_at
     dt = (tf-t0)/(n-1)
+    t_int = t0:dt:tf
+    save_idcs = collect(1:save_increment:length(t_int))
+    if save_idcs[end] != length(t_int)
+        push!(save_idcs, length(t_int)) 
+    end
+    n_eff = length(save_idcs)
     # initialize & return solution object
-    return DLRSolution(Vector{typeof(u0)}(undef, n), collect(range(t0, tf, length=n)))    
+    Y = Vector{typeof(u0)}(undef, n_eff)
+    r = Vector{Int}(undef, n_eff)
+    r_deim = Vector{Int}(undef, n_eff)
+    t = collect(t_int[save_idcs])
+    interpolation_idcs = Vector{Tuple{Vector{Int},Vector{Int}}}(undef, n_eff)
+    return DLRSolution(Y, t, r, r_deim, interpolation_idcs), dt, t_int, save_idcs  
 end
 
-function init_sol(dt::Int, t0, tf, u0) 
+function init_sol(dt::Int, t0::Int, tf::Int, u0, save_increment::Int) 
     # initialize solution object
-    steps = t0:dt:tf
-    return DLRSolution(Vector{typeof(u0)}(undef, length(steps)), collect(steps))    
+    t_int = t0:dt:tf
+    if !(tf in t_int)
+        t_int = vcat(collect(t_int), tf)
+    end    
+    save_idcs = collect(1:save_increment:length(t_int))
+    if save_idcs[end] != length(t_int)
+        push!(save_idcs, length(t_int)) 
+    end
+    n_eff = length(save_idcs)
+    Y = Vector{typeof(u0)}(undef, n_eff)
+    r = Vector{Int}(undef, n_eff)
+    r_deim = Vector{Int}(undef, n_eff)
+    t = collect(t_int[save_idcs])
+    interpolation_idcs = Vector{Tuple{Vector{Int},Vector{Int}}}(undef, n_eff)
+    return DLRSolution(Y, t, r, r_deim, interpolation_idcs), dt, t_int, save_idcs
+end
+
+function update_sol!(integrator::AbstractDLRIntegrator, idx)
+    #if integrator.iter <= length(integrator.sol.Y) - 1
+    integrator.sol.Y[idx] = deepcopy(integrator.u)
+    integrator.sol.t[idx] = integrator.t
+    integrator.sol.r[idx] = LowRankArithmetic.rank(integrator.u)
+    integrator.sol.r_DEIM[idx] = rank_DEIM(integrator.cache)
+    integrator.sol.idcs_DEIM[idx] = interpolation_indices(integrator.cache)
 end

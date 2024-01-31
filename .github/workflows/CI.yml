@@ -18,13 +18,13 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.6'
+          - '1.8'
           #- 'nightly' avoid for now 
         os:
           - ubuntu-latest
         arch:
           - x64
-          - x86
+          #- x86
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1

@@ -30,5 +30,3 @@
         @test all(Matrix(sol.Y[end]) .≈ Matrix(discrete_sol.Y[end]))
     end
 end
-
-#sol = LowRankIntegrators.solve(prob, solver, 1e-2)
