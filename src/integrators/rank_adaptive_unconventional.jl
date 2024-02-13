@@ -1,13 +1,13 @@
-struct RankAdaptiveUnconventionalAlgorithm_Params{sType, lType, kType}
+@concrete struct RankAdaptiveUnconventionalAlgorithm_Params
     S_rhs # rhs of S step (core projected rhs)
     L_rhs # rhs of L step (range projected rhs)
     K_rhs # rhs of K step (corange projected rhs)
     S_kwargs
     L_kwargs
     K_kwargs
-    S_alg::sType
-    L_alg::lType
-    K_alg::kType
+    S_alg
+    L_alg
+    K_alg
     tol
     r_max::Int
 end
@@ -248,7 +248,7 @@ function alg_recache(cache::RankAdaptiveUnconventionalAlgorithm_Cache, alg::Rank
             KIntegrator = init(KProblem, alg.alg_params.K_alg; save_everystep=false, alg.alg_params.K_kwargs...)
         end
         step!(KIntegrator, 0.01*dt, true)
-        set_t!(KIntegrator, t0)
+        set_t!(KIntegrator, t)
     end
 
     if isnothing(LProblem)
@@ -262,7 +262,7 @@ function alg_recache(cache::RankAdaptiveUnconventionalAlgorithm_Cache, alg::Rank
             LIntegrator = init(LProblem, alg.alg_params.L_alg; save_everystep=false, alg.alg_params.L_kwargs...)
         end
         step!(LIntegrator, 0.01*dt, true)
-        set_t!(LIntegrator, t0)
+        set_t!(LIntegrator, t)
     end
 
     if isnothing(SProblem)
@@ -276,7 +276,7 @@ function alg_recache(cache::RankAdaptiveUnconventionalAlgorithm_Cache, alg::Rank
             SIntegrator = init(SProblem, alg.alg_params.S_alg; save_everystep=false, alg.alg_params.S_kwargs...)
         end
         step!(SIntegrator, 0.01*dt, true)
-        set_t!(SIntegrator, t0)
+        set_t!(SIntegrator, t)
     end
 
     return RankAdaptiveUnconventionalAlgorithm_Cache(US, Uhat, VS, Vhat, M, N, SIntegrator, SProblem, LIntegrator, LProblem,

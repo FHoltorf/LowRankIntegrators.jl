@@ -50,10 +50,10 @@ end
         * n_rows        number of rows of the function output
         * n_cols        number of columns of the function output
 """
-struct ComponentFunction{FR,FC,FE}
-    rows!::FR
-    cols!::FC
-    elements!::FE
+@concrete struct ComponentFunction
+    rows!
+    cols!
+    elements!
     n_rows::Int
     n_cols::Int
 end
@@ -443,7 +443,7 @@ end
     type for carrying all necessary information for continuous sparse interpolation 
     to be applied for dynamical low rank approximation.
 """
-struct SparseInterpolation
+@concrete struct SparseInterpolation
     selection_alg
     update_scheme
     tol
@@ -456,4 +456,13 @@ end
 function SparseInterpolation(selection_alg, init_range, init_corange; update_scheme = :last_iterate,
                              rmin = 1, rmax = min(size(init_range,1), size(init_corange,1)), tol = eps(Float64))
     return SparseInterpolation(selection_alg, update_scheme, tol, rmin, rmax, init_range, init_corange)
+end
+
+
+"""
+    $TYPEDEF
+
+"""
+@concrete mutable struct KmeansCluster
+    
 end

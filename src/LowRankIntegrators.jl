@@ -1,5 +1,5 @@
 module LowRankIntegrators
-using Reexport, UnPack, DocStringExtensions, LinearAlgebra, ProgressMeter
+using Reexport, UnPack, DocStringExtensions, LinearAlgebra, ProgressMeter, Clustering, ConcreteStructs
 import DifferentialEquations: step!, set_u!, init
 
 @reexport using DifferentialEquations, LowRankArithmetic
