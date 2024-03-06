@@ -6,16 +6,15 @@ version = "0.1.0"
 [deps]
 Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
 ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
-DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LowRankArithmetic = "8016d1d1-7a3b-4ad2-b79e-5984174ed314"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 UnPack = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
 
 [compat]
-DifferentialEquations = "7"
 Reexport = "1"
 UnPack = "1"
 julia = "1.8"

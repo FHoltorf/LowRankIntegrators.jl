@@ -1,4 +1,4 @@
-using LowRankIntegrators, Plots
+using LowRankIntegrators, Plots, LinearAlgebra
 N = 100
 Ws = []
 for k in 1:2
