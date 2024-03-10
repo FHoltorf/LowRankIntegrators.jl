@@ -1,7 +1,7 @@
 using OrdinaryDiffEq
 import OrdinaryDiffEq: step!, set_u!, init
 
-@concrete struct LieTrotterRetraction <: AbstractLowRankRetraction 
+@concrete struct LieTrotterRetraction <: ExtendedLowRankRetraction 
     S_alg
     K_alg
     L_alg
@@ -19,7 +19,7 @@ LieTrotterRetraction(; S_stepper = Tsit5(),
                        L_options = Dict{Symbol, Any}()) = LieTrotterRetraction(S_stepper, K_stepper, L_stepper,
                                                                                S_options, K_options, L_options)
                                                                                
-@concrete struct StrangRetraction <: AbstractLowRankRetraction
+@concrete struct StrangRetraction <: ExtendedLowRankRetraction
     LieTrotter
 end
 function StrangRetraction(alg::OrdinaryDiffEqAlgorithm; kwargs...) 
@@ -35,7 +35,7 @@ function StrangRetraction(; S_stepper = Tsit5(),
                                S_options, K_options, L_options))
 end 
 
-@concrete struct LieTrotterCache <: AbstractLowRankRetractionCache
+@concrete struct LieTrotterCache <: LowRankRetractionCache
     K0
     L0
     L_integrator

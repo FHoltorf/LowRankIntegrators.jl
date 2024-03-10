@@ -20,8 +20,8 @@ elements(m::SparseLowRankModel{false}, X, t, rows, cols) = error("Please impleme
 postprocess_step!(cache, model, t) = nothing
 
 update_sparse_approximation!(SA, model, cache, t, R) = nothing
-update_cache!(::AbstractLowRankRetractionCache, SA::SparseApproximation) = nothing
-state(cache::AbstractLowRankRetractionCache) = error("Please implement dispatch for state($(typeof(cache)))") 
+update_cache!(::LowRankRetractionCache, SA::SparseApproximation) = nothing
+state(cache::LowRankRetractionCache) = error("Please implement dispatch for state($(typeof(cache)))") 
 
 
 

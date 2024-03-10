@@ -1,6 +1,6 @@
-struct KLSRetraction <: AbstractLowRankRetraction end
+struct KLSRetraction <: ExtendedLowRankRetraction end
 
-@concrete struct KLSCache <: AbstractLowRankRetractionCache
+@concrete struct KLSCache <: LowRankRetractionCache
     K0
     L0
     U1
@@ -158,4 +158,52 @@ function update_cache!(cache::KLSCache, SA::SparseApproximation)
 
     PS.range.indices .= sparse_approximator.range.indices 
     PS.corange.indices .= sparse_approximator.corange.indices 
+end
+
+function retract(X, dX, ::KLSRetraction)
+    #K-step
+    K = X.U*X.S
+    K .+= Matrix(dX*X.V)
+    QRK = qr!(K0) 
+    U1 = Matrix(QRK.Q) 
+    M = U1'*X.U
+   
+    #L-step
+    L = X.V*X.S'
+    L .+= Matrix(dX'*X.U)
+    QRL = qr!(L0) 
+    V1 = Matrix(QRL.Q) 
+    N = V1'*X.V
+
+    #S-step
+    S1 = M*X.S*N'
+    S1 += Matrix(U1'*dX*V1)
+    return SVDLikeRepresentation(U1, S1, V1)
+end
+
+function retract!(cache, dX, ::KLSRetraction)
+    @unpack X, L0, dL, K0, dK, U1, S1, V1, dS, M, N = cache
+
+    #K-step
+    mul!(K0, X.U, X.S)
+    K0 .+= Matrix(dX*X.V) # can avoid by caching cleverly
+    QRK = qr!(K0) 
+    U1 .= Matrix(QRK.Q) 
+    mul!(M, U1', X.U)
+   
+    #L-step 
+    mul!(L0, X.V, X.S')
+    L0 .+= Matrix(dX'*X.U) # can avoid by caching cleverly
+    QRL = qr!(L0) 
+    V1 .= Matrix(QRL.Q) 
+    mul!(N, V1',X.V)
+    
+    #S-step
+    mul!(S1, X.S, N')
+    mul!(X.S, M, S1)
+
+    # Update
+    X.S .+= Matrix(U1'*dX*V1)
+    X.V .= V1
+    X.U .= U1
 end

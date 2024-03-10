@@ -144,16 +144,29 @@ function evaluate_approximator(P::SparseProjector, model::SparseLowRankModel, X,
     R = rows(model, X, t, indices(P))
     weights(P) * R
 end
+function evaluate_approximator_factored(P::SparseProjector, model::SparseLowRankModel, X, t)
+    R = rows(model, X, t, indices(P))
+    TwoFactorRepresentation(weights(P), R')
+end
 
 function evaluate_approximator(P::AdjointSparseProjector, model::SparseLowRankModel, X, t)
     C = columns(model, X, t, indices(P))
     C * weights(P)'
+end
+function evaluate_approximator_factored(P::AdjointSparseProjector, model::SparseLowRankModel, X, t)
+    C = columns(model, X, t, indices(P))
+    TwoFactorRepresentation(C, weights(P))
 end
 
 function evaluate_approximator(P::SparseMatrixApproximator, model::SparseLowRankModel, X, t)
     E = elements(model, X, t, P.range.indices, indices(P)...)
     W, V = weights(P)
     W * E * V'
+end
+function evaluate_approximator_factored(P::SparseMatrixApproximator, model::SparseLowRankModel, X, t)
+    E = elements(model, X, t, P.range.indices, indices(P)...)
+    W, V = weights(P)
+    SVDLikeRepresentation(W, E, V)
 end
 
 """
@@ -165,10 +178,20 @@ function evaluate_approximator!(dX, P::SparseProjector, model::SparseLowRankMode
     rows!(model, cache(P), X, t, indices(P))
     mul!(dX, weights(P), cache(P))
 end
+function evaluate_approximator_factored!(dX::TwoFactorRepresentation, P::SparseProjector, model::SparseLowRankModel, X, t)
+    rows!(model, dX.Z', X, t, indices(P))
+    copyto!(dX.U, weights(P))
+end
+
 function evaluate_approximator!(dX, P::AdjointSparseProjector, model::SparseLowRankModel, X, t)
     columns!(model, cache(P), X, t, indices(P))
     mul!(dX, cache(P), weights(P)')
 end
+function evaluate_approximator_factored!(dX::TwoFactorRepresentation, P::AdjointSparseProjector, model::SparseLowRankModel, X, t)
+    columns!(model, dX.U, X, t, indices(P))
+    copyto!(dX.Z, weights(P))
+end
+
 function evaluate_approximator!(dX, P::SparseMatrixApproximator, model::SparseLowRankModel, X, t)
     @unpack elements, rows, columns = cache(P)
     row_idcs, col_idcs = indices(P)
@@ -180,6 +203,12 @@ function evaluate_approximator!(dX, P::SparseMatrixApproximator, model::SparseLo
         mul!(columns, elements, weights(P.corange)')
         mul!(dX, weights(P.range), rows)
     end
+end
+function evaluate_approximator_factored!(dX::SVDLikeRepresentation, P::SparseMatrixApproximator, model::SparseLowRankModel, X, t)
+    row_idcs, col_idcs = indices(P)
+    elements!(model, dX.S, X, t, row_idcs, col_idcs)
+    copyto!(dX.U, weights(P.range))
+    copyto!(dX.V, weights(P.corange))
 end
 
 """
@@ -358,8 +387,6 @@ function SparseApproximation(selection_alg::IndexSelectionAlgorithm,
     sparse_approximator = SparseMatrixApproximator(row_indices, col_indices, range_weights, corange_weights)
     
     SparseApproximation(selection_alg, update_scheme, UF, VF, sparse_approximator)
-
-    
 end
 
 function approximate_ranges!(SA::SparseApproximation, model, cache, t)
@@ -396,7 +423,7 @@ function get_clusters(X, k)
     return idcs
 end
 
-function update_sparse_approximation!(SA::SparseApproximation, model, cache, t, R::AbstractLowRankRetraction)
+function update_sparse_approximation!(SA::SparseApproximation, model, cache, t)
     @unpack selection_alg, sparse_approximator = SA
     approximate_ranges!(SA, model, cache, t)
     

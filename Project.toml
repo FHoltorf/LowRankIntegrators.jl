@@ -4,6 +4,7 @@ authors = ["Flemming Holtorf"]
 version = "0.1.0"
 
 [deps]
+BlockDiagonals = "0a1fb500-61f7-11e9-3c65-f5ef3456f9f0"
 Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
 ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"

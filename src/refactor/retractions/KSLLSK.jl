@@ -1,8 +1,8 @@
-struct KSLRetraction <: AbstractLowRankRetraction end
-struct LSKRetraction <: AbstractLowRankRetraction end
-struct KSLLSKRetraction <: AbstractLowRankRetraction end
+struct KSLRetraction <: ExtendedLowRankRetraction end
+struct LSKRetraction <: ExtendedLowRankRetraction end
+struct KSLLSKRetraction <: ExtendedLowRankRetraction end
 
-@concrete struct KSLCache <: AbstractLowRankRetractionCache
+@concrete struct KSLCache <: LowRankRetractionCache
     K0
     L0
     dK
@@ -157,4 +157,79 @@ function update_cache!(cache::KSLCache, SA::SparseApproximation)
 
     PS.range.indices .= sparse_approximator.range.indices 
     PS.corange.indices .= sparse_approximator.corange.indices 
+end
+
+# retraction 
+function K_step!(X::SVDLikeRepresentation, dX)
+    K = X.U*X.S
+    dK = Matrix(dX*X.V)
+    K .+= dK
+    QRK = qr!(K) 
+    X.U .= Matrix(QRK.Q) 
+    X.S .= QRK.R
+end
+function K_step!(cache::KSLCache, dX)
+    @unpack X, K0, sparse_approximator_cache = cache
+
+    mul!(K0, X.U, X.S)
+    dK = Matrix(dX, X.V)
+    K0 .+= dK
+    QRK = qr!(K0) 
+    X.U .= Matrix(QRK.Q) 
+    X.S .= QRK.R
+end
+
+function S_step!(cache::KSLCache, dX)
+    @unpack X, sparse_approximator_cache = cache
+    dS = Matrix(X.U'*dX*X.V)
+    X.S .-= dS
+end
+function S_step!(X::SVDLikeRepresentation, dX)
+    dS = Matrix(X.U'*dX*X.V)
+    X.S .-= dS
+end
+
+function L_step!(cache::KSLCache, dX)
+    @unpack X, L0 = cache
+    mul!(L0, X.V, X.S')
+    dL = Matrix(dX'*X.U)
+    L0 .+= dL
+    QRL = qr!(L0) 
+    X.V .= Matrix(QRL.Q) 
+    X.S .= QRL.R'
+end
+function L_step!(X::SVDLikeRepresentation, dX)
+    L = X.V*X.S'
+    dL = Matrix(dX'*X.U)
+    L .+= dL
+    QRL = qr!(L) 
+    X.V .= Matrix(QRL.Q) 
+    X.S .= QRL.R'
+end
+
+# retractions
+function retract(X, dX, ::KSLRetraction)
+    Xnew = deepcopy(X)
+    K_step!(Xnew,dX)
+    S_step!(Xnew,dX)
+    L_step!(Xnew,dX)
+    return Xnew
+end
+function retract(X, dX, ::LSKRetraction)
+    Xnew = deepcopy(X)
+    K_step!(Xnew,dX)
+    S_step!(Xnew,dX)
+    L_step!(Xnew,dX)
+    return Xnew
+end
+
+function retract!(cache, dX, ::KSLRetraction)
+    K_step!(cache,dX)
+    S_step!(cache,dX)
+    L_step!(cache,dX)
+end
+function retract!(cache, dX, ::LSKRetraction)
+    L_step!(cache,dX)
+    S_step!(cache,dX)
+    K_step!(cache,dX)
 end

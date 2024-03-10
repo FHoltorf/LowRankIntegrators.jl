@@ -2,23 +2,30 @@ using ConcreteStructs, LowRankArithmetic, ProgressMeter, UnPack
 """
     ($TYPEDEF)
 
-    To register a new LowRankRetraction simply subtype it as `AbstractLowRankRetraction`.
+    To register a new LowRankRetraction simply subtype it as `LowRankRetraction`.
 """
-abstract type AbstractLowRankRetraction end
+abstract type LowRankRetraction end
+
+"""
+    ($TYPEDEF)
+
+    To register a new ExtendedLowRankRetraction simply subtype it as `LowRankRetraction`.
+"""
+abstract type ExtendedLowRankRetraction <: LowRankRetraction end 
 
 """
     ($TYPEDEF)
 
     For efficient computations we need caches. If you register a cache for your new retraction,
-    subtype it with `AbstractLowRankRetractionCache`. There a few things that need to have dispatches.
+    subtype it with `LowRankRetractionCache`. There a few things that need to have dispatches.
 
     state(cache::YourLowRankRetractionCache)
     update_cache!(cache::YourLowRankRetractionCache, SA::SparseApproximation)
 
-    Every `AbstractLowRankRetractionCache` should have a dispatch for `state(cache)` which should
+    Every `LowRankRetractionCache` should have a dispatch for `state(cache)` which should
     return the low-rank approximation representing the current state X̂.
 """
-abstract type AbstractLowRankRetractionCache end
+abstract type LowRankRetractionCache end
 
 abstract type AbstractLowRankModel end
 """
@@ -100,7 +107,7 @@ end
     approximation_indices
 end
 # routines for initializing and updating the solution, depending on whether sparse interpolation is used or not
-function initialize_sol(prob::MatrixDEProblem, R::AbstractLowRankRetraction, SA)
+function initialize_sol(prob::MatrixDEProblem, SA)
     if SA isa SparseApproximation
         @unpack sparse_approximator = SA
         return DLRASolution([prob.tspan[1]], 
@@ -114,7 +121,7 @@ function initialize_sol(prob::MatrixDEProblem, R::AbstractLowRankRetraction, SA)
                  missing)
     end
 end
-function update_sol!(sol::DLRASolution, cache, t_, R::AbstractLowRankRetraction, SA)
+function update_sol!(sol::DLRASolution, cache, t_, SA)
     @unpack t, X, r, approximation_indices = sol
     X_new = state(cache)
     push!(t, t_)
@@ -123,11 +130,11 @@ function update_sol!(sol::DLRASolution, cache, t_, R::AbstractLowRankRetraction,
     if SA isa SparseApproximation
         @unpack sparse_approximator = SA
         push!(approximation_indices, (copy(indices(sparse_approximator.range)), 
-                                    copy(indices(sparse_approximator.corange))))
+                                      copy(indices(sparse_approximator.corange))))
     end
 end
 
-function solve(prob::MatrixDEProblem, h::Number, R::AbstractLowRankRetraction, SA = missing) 
+function solve(prob::MatrixDEProblem, h::Number, R::LowRankRetraction, SA = missing) 
     t0, tf = prob.tspan
     t_grid = collect(t0:h:tf)
     if !(t_grid[end] == tf)
@@ -136,7 +143,7 @@ function solve(prob::MatrixDEProblem, h::Number, R::AbstractLowRankRetraction, S
     solve(prob, t_grid, R, SA)
 end
 
-function solve(prob::MatrixDEProblem, t_grid::AbstractVector, R::AbstractLowRankRetraction, SA = missing)
+function solve(prob::MatrixDEProblem, t_grid::AbstractVector, R::LowRankRetraction, SA = missing)
     SA = deepcopy(SA) # do not alter input!
 
     @unpack model, tspan, X0 = prob
@@ -150,7 +157,7 @@ function solve(prob::MatrixDEProblem, t_grid::AbstractVector, R::AbstractLowRank
 
     @assert issorted(t_grid) || issorted(tgrid, rev=true) "The integration time grid must be sorted."
     
-    sol = initialize_sol(prob, R, SA)
+    sol = initialize_sol(prob, SA)
     cache = initialize_cache(prob, R, SA)
 
     n_steps = length(t_grid) - 1 
@@ -168,10 +175,10 @@ function solve(prob::MatrixDEProblem, t_grid::AbstractVector, R::AbstractLowRank
         postprocess_step!(cache, model, t_new)
 
         # update sparse approximation if necessary
-        update_sparse_approximation!(SA, model, cache, t_new, R)        
+        update_sparse_approximation!(SA, model, cache, t_new)        
 
         # update solution
-        update_sol!(sol, cache, t_new, R, SA)
+        update_sol!(sol, cache, t_new, SA)
         
         # update progress meter
         next!(progressmeter)
@@ -181,3 +188,4 @@ function solve(prob::MatrixDEProblem, t_grid::AbstractVector, R::AbstractLowRank
     sol
 end
 
+#abstract type LowRankStepper end

@@ -1,9 +1,14 @@
 module LowRankIntegrators
-       using UnPack, LowRankArithmetic, ProgressMeter, ConcreteStructs, LinearAlgebra, DocStringExtensions
+       using UnPack, LowRankArithmetic, ProgressMeter, ConcreteStructs, 
+             LinearAlgebra, BlockDiagonals, DocStringExtensions
+
        include("refactor/primitives.jl")
+       include("refactor/model_evaluation.jl")
+       include("refactor/projected_runge_kutta.jl")
        include("refactor/utils.jl")
        include("refactor/sparse_approximation.jl")
        include("refactor/defaults.jl")
+       include("refactor/retractions/default.jl")
        include("refactor/retractions/KLS.jl")
        include("refactor/retractions/KSLLSK.jl")
        include("refactor/retractions/BUG.jl")

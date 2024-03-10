@@ -1,7 +1,7 @@
 using OrdinaryDiffEq
 import OrdinaryDiffEq: step!, set_u!, init
 
-@concrete struct RankAdaptiveBUGRetraction <: AbstractLowRankRetraction 
+@concrete struct RankAdaptiveBUGRetraction <: ExtendedLowRankRetraction 
     rmin::Int
     rmax::Int
     atol::Float64
@@ -30,7 +30,7 @@ function RankAdaptiveBUGRetraction(rmin::Int, rmax::Int, alg = Tsit5(); rtol = 1
     RankAdaptiveBUGRetraction(rmin, rmax, atol, rtol, S_stepper, K_stepper, L_stepper, S_options, K_options, L_options)
 end
 
-@concrete mutable struct RankAdaptiveBUGCache <: AbstractLowRankRetractionCache
+@concrete mutable struct RankAdaptiveBUGCache <: LowRankRetractionCache
     K0
     L0
     Uhat

@@ -1,7 +1,7 @@
 using OrdinaryDiffEq
 import OrdinaryDiffEq: step!, set_u!, init
 
-@concrete struct BUGRetraction <: AbstractLowRankRetraction 
+@concrete struct BUGRetraction <: LowRankRetraction 
     S_alg
     K_alg
     L_alg
@@ -19,7 +19,7 @@ BUGRetraction(; S_stepper = Tsit5(),
                        L_options = Dict{Symbol, Any}()) = BUGRetraction(S_stepper, K_stepper, L_stepper,
                                                                         S_options, K_options, L_options)
 
-@concrete struct BUGCache <: AbstractLowRankRetractionCache
+@concrete struct BUGCache <: LowRankRetractionCache
     K0
     L0
     U1
