@@ -5,19 +5,29 @@
     s
 end
 
-struct PRK{RType <: ExtendedLowRankRetraction, T <: ButcherTableau}
+function ButcherTableau(a::Vector{Vector{T}},b::Vector{A},c::Vector{B}) where {T <: Number, A <: Number, B <: Number}
+    s = length(a) + 1
+    @assert sum(b) ≈ 1 "the step sizes must add to one"
+    @assert length(c) == length(b) == s "length of a, b, and c is inconsistent for $s stage RK method"
+    @assert c[end] <= 1 "c[end] > 1"
+    return ButcherTableau(a,b,c,s)
+end
+
+struct ProjectedRK{RType <: ExtendedLowRankRetraction, T <: ButcherTableau} <: LowRankStepper
     R::RType
     tableau::T
 end
 
-@concrete struct PRKCache
+@concrete struct PRKCache <: LowRankStepperCache
     X
     ks # low rank factorizations => s times
     ηs # intermediate points => (s-1) times (the first one is X)
     slope_range # n x 2*s*r
     slope_corange # m x 2*s*r
 end
-function initialize_cache(prob, PRK, SA)
+state(cache::PRKCache) = cache.X
+
+function initialize_cache(prob, PRK::ProjectedRK, SA)
     X = deepcopy(prob.X0)
     s = PRK.tableau.s
     n, m = size(X)
@@ -29,23 +39,23 @@ function initialize_cache(prob, PRK, SA)
     return PRKCache(X, ks, ηs, slope_range, slope_corange)
 end
 # pseudocode
-function retracted_step!(cache::PRKCache, model::AbstractLowRankModel, t, h, prk::PRK, SA)
+function retracted_step!(cache::PRKCache, model::AbstractLowRankModel, t, h, PRK::ProjectedRK, SA)
     @unpack R, tableau = PRK
     @unpack a, b, c, s = tableau
     @unpack X, ks, ηs, slope_range, slope_corange = cache
 
     r = rank(X)
     ηs[1] = X
-    ks[1] =  evaluate_tangent_model(X, model, t + c[1]*h, SA) 
+    ks[1] = evaluate_tangent_model(X, model, t + c[1]*h, SA) 
     @views slope_range[:,1:2r] .= ks[1].U # maybe use block arrays instead
     @views slope_corange[:,1:2r] .= ks[1].V # maybe use block arrays instead
 
     for i in 2:s
         # compute intermediate slope dη
-        slope_core = BlockDiagonal([(h*a[i][j]) * ks[j].S for j in 1:i-1])
-        @views dη = SVDLikeRepresentation(slope_range[:,1:2*(i-1)*r], 
-                                          slope_core, 
-                                          slope_corange[:,1:2*(i-1)*r])
+        slope_core = BlockDiagonal([(h*a[i-1][j]) * ks[j].S for j in 1:i-1])
+        dη = SVDLikeRepresentation(slope_range[:,1:2*(i-1)*r], 
+                                   slope_core, 
+                                   slope_corange[:,1:2*(i-1)*r])
 
         # compute intermediate step
         # make this cached in the long term (should be straightforward)
@@ -53,7 +63,7 @@ function retracted_step!(cache::PRKCache, model::AbstractLowRankModel, t, h, prk
         
         # compute new slope 
         # make this cached in the long term (slightly tricky because the rank may not be known apriori)
-        ks[i] = evaluate_tangent_model(X, model, t + c[i]*h, SA) 
+        ks[i] = evaluate_tangent_model(ηs[i], model, t + c[i]*h, SA) 
         @views slope_range[:,2(i-1)r+1:2*i*r] .= ks[i].U
         @views slope_corange[:,2(i-1)r+1:2*i*r] .= ks[i].V
     end

@@ -1,7 +1,7 @@
 using OrdinaryDiffEq
 import OrdinaryDiffEq: step!, set_u!, init
 
-@concrete struct LieTrotterRetraction <: ExtendedLowRankRetraction 
+@concrete struct LieTrotterStepper <: LowRankStepper
     S_alg
     K_alg
     L_alg
@@ -10,32 +10,32 @@ import OrdinaryDiffEq: step!, set_u!, init
     L_options
 end
 
-LieTrotterRetraction(alg::OrdinaryDiffEqAlgorithm; kwargs...) = LieTrotterRetraction(alg, alg, alg, kwargs, kwargs, kwargs)
-LieTrotterRetraction(; S_stepper = Tsit5(),
+LieTrotterStepper(alg::OrdinaryDiffEqAlgorithm; kwargs...) = LieTrotterStepper(alg, alg, alg, kwargs, kwargs, kwargs)
+LieTrotterStepper(; S_stepper = Tsit5(),
                        K_stepper = Tsit5(),
                        L_stepper = Tsit5(),
                        S_options = Dict{Symbol, Any}(),
                        K_options = Dict{Symbol, Any}(),
-                       L_options = Dict{Symbol, Any}()) = LieTrotterRetraction(S_stepper, K_stepper, L_stepper,
+                       L_options = Dict{Symbol, Any}()) = LieTrotterStepper(S_stepper, K_stepper, L_stepper,
                                                                                S_options, K_options, L_options)
                                                                                
-@concrete struct StrangRetraction <: ExtendedLowRankRetraction
+@concrete struct StrangStepper <: LowRankStepper
     LieTrotter
 end
-function StrangRetraction(alg::OrdinaryDiffEqAlgorithm; kwargs...) 
-    StrangRetraction(LieTrotterRetraction(alg, alg, alg, kwargs, kwargs, kwargs))
+function StrangStepper(alg::OrdinaryDiffEqAlgorithm; kwargs...) 
+    StrangStepper(LieTrotterStepper(alg, alg, alg, kwargs, kwargs, kwargs))
 end
-function StrangRetraction(; S_stepper = Tsit5(),
+function StrangStepper(; S_stepper = Tsit5(),
                             K_stepper = Tsit5(),
                             L_stepper = Tsit5(),
                             S_options = Dict{Symbol, Any}(),
                             K_options = Dict{Symbol, Any}(),
                             L_options = Dict{Symbol, Any}()) 
-    StrangRetraction(LieTrotterRetraction(S_stepper, K_stepper, L_stepper,
+    StrangStepper(LieTrotterStepper(S_stepper, K_stepper, L_stepper,
                                S_options, K_options, L_options))
 end 
 
-@concrete struct LieTrotterCache <: LowRankRetractionCache
+@concrete struct LieTrotterCache <: LowRankStepperCache
     K0
     L0
     L_integrator
@@ -46,10 +46,10 @@ end
 end
 state(cache::LieTrotterCache) = cache.X
 
-initialize_cache(prob::MatrixDEProblem, R::LieTrotterRetraction, SA) = initialize_cache(prob, prob.model, R, SA)
-initialize_cache(prob::MatrixDEProblem, R::StrangRetraction, SA) = initialize_cache(prob, R.LieTrotter, SA)
+initialize_cache(prob::MatrixDEProblem, R::LieTrotterStepper, SA) = initialize_cache(prob, prob.model, R, SA)
+initialize_cache(prob::MatrixDEProblem, R::StrangStepper, SA) = initialize_cache(prob, R.LieTrotter, SA)
 
-function initialize_cache(prob, ::FactoredLowRankModel{false}, R::LieTrotterRetraction, ::Missing)
+function initialize_cache(prob, ::FactoredLowRankModel{false}, R::LieTrotterStepper, ::Missing)
     @unpack model, X0, tspan, dims = prob
     @unpack S_alg, K_alg, L_alg, S_options, K_options, L_options = R
 
@@ -80,7 +80,7 @@ function initialize_cache(prob, ::FactoredLowRankModel{false}, R::LieTrotterRetr
     LieTrotterCache(K0, L0, L_integrator, S_integrator, K_integrator, X, missing)
 end
 
-function initialize_cache(prob, ::SparseLowRankModel{true}, R::LieTrotterRetraction, SA)
+function initialize_cache(prob, ::SparseLowRankModel{true}, R::LieTrotterStepper, SA)
     @unpack model, X0, tspan, dims = prob
     @unpack S_alg, K_alg, L_alg, S_options, K_options, L_options = R
 
@@ -129,7 +129,7 @@ end
     PS # sparse approximator for S step
 end
 
-function initialize_sparse_approximation_cache(SA::SparseApproximation, X0, ::LieTrotterRetraction)
+function initialize_sparse_approximation_cache(SA::SparseApproximation, X0, ::LieTrotterStepper)
     @unpack sparse_approximator = SA
     @unpack range, corange = sparse_approximator
 
@@ -142,13 +142,13 @@ function initialize_sparse_approximation_cache(SA::SparseApproximation, X0, ::Li
     LieTrotterSparseApproximatorCache(PK, PL, PS)
 end
 
-function retracted_step!(cache, model::AbstractLowRankModel, t, h, ::LieTrotterRetraction, SA)
+function retracted_step!(cache, model::AbstractLowRankModel, t, h, ::LieTrotterStepper, SA)
     K_step!(cache, model, t, h, SA)
     S_step!(cache, model, t, h, SA)
     L_step!(cache, model, t, h, SA)
 end
 
-function retracted_step!(cache, model::AbstractLowRankModel, t, h, ::StrangRetraction, SA)
+function retracted_step!(cache, model::AbstractLowRankModel, t, h, ::StrangStepper, SA)
     K_step!(cache, model, t, h, SA)
     S_step!(cache, model, t, h, SA)
     L_step!(cache, model, t, h, SA)

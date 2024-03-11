@@ -2,18 +2,26 @@ module LowRankIntegrators
        using UnPack, LowRankArithmetic, ProgressMeter, ConcreteStructs, 
              LinearAlgebra, BlockDiagonals, DocStringExtensions
 
+       # basic utils
        include("refactor/primitives.jl")
        include("refactor/model_evaluation.jl")
-       include("refactor/projected_runge_kutta.jl")
        include("refactor/utils.jl")
+       # sparse approximation utils
        include("refactor/sparse_approximation.jl")
        include("refactor/defaults.jl")
+       # steppers
+       include("refactor/stepper/ProjectedEuler.jl")
+       include("refactor/stepper/ProjectedRK.jl")
+       include("refactor/stepper/KLSStepper.jl")
+       include("refactor/stepper/KSLStepper.jl")
+       include("refactor/stepper/BUG.jl")
+       include("refactor/stepper/ProjectorSplitting.jl")
+       include("refactor/stepper/RankAdaptiveBUG.jl")
+       include("refactor/stepper/SparseInterpolationRK.jl")
+       # retractions
        include("refactor/retractions/default.jl")
        include("refactor/retractions/KLS.jl")
-       include("refactor/retractions/KSLLSK.jl")
-       include("refactor/retractions/BUG.jl")
-       include("refactor/retractions/ProjectorSplitting.jl")
-       include("refactor/retractions/RankAdaptiveBUG.jl")
+       include("refactor/retractions/KSL.jl")
 end
 # using Reexport, UnPack, DocStringExtensions, LinearAlgebra, ProgressMeter, Clustering, ConcreteStructs
 # import DifferentialEquations: step!, set_u!, init

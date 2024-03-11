@@ -1,7 +1,7 @@
 using OrdinaryDiffEq
 import OrdinaryDiffEq: step!, set_u!, init
 
-@concrete struct BUGRetraction <: LowRankRetraction 
+@concrete struct BUGStepper <: LowRankStepper
     S_alg
     K_alg
     L_alg
@@ -10,16 +10,16 @@ import OrdinaryDiffEq: step!, set_u!, init
     L_options
 end
 
-BUGRetraction(alg; kwargs...) = BUGRetraction(alg, alg, alg, kwargs, kwargs, kwargs)
-BUGRetraction(; S_stepper = Tsit5(),
+BUGStepper(alg; kwargs...) = BUGStepper(alg, alg, alg, kwargs, kwargs, kwargs)
+BUGStepper(; S_stepper = Tsit5(),
                        K_stepper = Tsit5(),
                        L_stepper = Tsit5(),
                        S_options = Dict{Symbol, Any}(),
                        K_options = Dict{Symbol, Any}(),
-                       L_options = Dict{Symbol, Any}()) = BUGRetraction(S_stepper, K_stepper, L_stepper,
+                       L_options = Dict{Symbol, Any}()) = BUGStepper(S_stepper, K_stepper, L_stepper,
                                                                         S_options, K_options, L_options)
 
-@concrete struct BUGCache <: LowRankRetractionCache
+@concrete struct BUGCache <: LowRankStepperCache
     K0
     L0
     U1
@@ -35,10 +35,10 @@ BUGRetraction(; S_stepper = Tsit5(),
 end
 state(cache::BUGCache) = cache.X
 
-initialize_cache(prob::MatrixDEProblem, R::BUGRetraction, SA) = 
+initialize_cache(prob::MatrixDEProblem, R::BUGStepper, SA) = 
                     initialize_cache(prob, prob.model, R, SA)
 
-function initialize_cache(prob, ::FactoredLowRankModel{false}, R::BUGRetraction, ::Missing)
+function initialize_cache(prob, ::FactoredLowRankModel{false}, R::BUGStepper, ::Missing)
     @unpack model, X0, tspan, dims = prob
     @unpack S_alg, K_alg, L_alg, S_options, K_options, L_options = R
 
@@ -74,7 +74,7 @@ function initialize_cache(prob, ::FactoredLowRankModel{false}, R::BUGRetraction,
     BUGCache(K0, L0, U1, S1, V1, M, N, L_integrator, S_integrator, K_integrator, X, missing)
 end
 
-function initialize_cache(prob, ::SparseLowRankModel{true}, R::BUGRetraction, SA)
+function initialize_cache(prob, ::SparseLowRankModel{true}, R::BUGStepper, SA)
     @unpack model, X0, tspan, dims = prob
     @unpack S_alg, K_alg, L_alg, S_options, K_options, L_options = R
 
@@ -127,7 +127,7 @@ end
     PS # sparse approximator for S step
 end
 
-function initialize_sparse_approximation_cache(SA::SparseApproximation, X0, ::BUGRetraction)
+function initialize_sparse_approximation_cache(SA::SparseApproximation, X0, ::BUGStepper)
     @unpack sparse_approximator = SA
     @unpack range, corange = sparse_approximator
 
@@ -140,7 +140,7 @@ function initialize_sparse_approximation_cache(SA::SparseApproximation, X0, ::BU
     BUGSparseApproximatorCache(PK, PL, PS)
 end
 
-function retracted_step!(cache, model::AbstractLowRankModel, t, h, ::BUGRetraction, SA)
+function retracted_step!(cache, model::AbstractLowRankModel, t, h, ::BUGStepper, SA)
     K_step!(cache, model, t, h, SA)
     L_step!(cache, model, t, h, SA)
 

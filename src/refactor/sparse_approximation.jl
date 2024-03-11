@@ -140,30 +140,38 @@ cache(P::SparseMatrixApproximator) = P.cache
 
     outofplace evaluation of a `SparseLowrankModel` at approximators.
 """
-function evaluate_approximator(P::SparseProjector, model::SparseLowRankModel, X, t)
+function evaluate_approximator(P::SparseProjector, model::SparseLowRankModel{false}, X, t)
     R = rows(model, X, t, indices(P))
     weights(P) * R
 end
-function evaluate_approximator_factored(P::SparseProjector, model::SparseLowRankModel, X, t)
-    R = rows(model, X, t, indices(P))
-    TwoFactorRepresentation(weights(P), R')
-end
 
-function evaluate_approximator(P::AdjointSparseProjector, model::SparseLowRankModel, X, t)
+function evaluate_approximator(P::AdjointSparseProjector, model::SparseLowRankModel{false}, X, t)
     C = columns(model, X, t, indices(P))
     C * weights(P)'
 end
-function evaluate_approximator_factored(P::AdjointSparseProjector, model::SparseLowRankModel, X, t)
-    C = columns(model, X, t, indices(P))
-    TwoFactorRepresentation(C, weights(P))
-end
 
-function evaluate_approximator(P::SparseMatrixApproximator, model::SparseLowRankModel, X, t)
+function evaluate_approximator(P::SparseMatrixApproximator, model::SparseLowRankModel{false}, X, t)
     E = elements(model, X, t, P.range.indices, indices(P)...)
     W, V = weights(P)
     W * E * V'
 end
-function evaluate_approximator_factored(P::SparseMatrixApproximator, model::SparseLowRankModel, X, t)
+
+"""
+    $(TYPEDSIGNATURES)
+
+    out-of-place evaluation of sparse approximators in factored form.
+"""
+function evaluate_approximator_factored(P::SparseProjector, model::SparseLowRankModel{false}, X, t)
+    R = rows(model, X, t, indices(P))
+    TwoFactorRepresentation(weights(P), R')
+end
+
+function evaluate_approximator_factored(P::AdjointSparseProjector, model::SparseLowRankModel{false}, X, t)
+    C = columns(model, X, t, indices(P))
+    TwoFactorRepresentation(C, weights(P))
+end
+
+function evaluate_approximator_factored(P::SparseMatrixApproximator, model::SparseLowRankModel{false}, X, t)
     E = elements(model, X, t, P.range.indices, indices(P)...)
     W, V = weights(P)
     SVDLikeRepresentation(W, E, V)
@@ -174,25 +182,25 @@ end
 
     inplace evaluation of a `SparseLowrankModel` at approximators.
 """
-function evaluate_approximator!(dX, P::SparseProjector, model::SparseLowRankModel, X, t)
+function evaluate_approximator!(dX, P::SparseProjector, model::SparseLowRankModel{true}, X, t)
     rows!(model, cache(P), X, t, indices(P))
     mul!(dX, weights(P), cache(P))
 end
-function evaluate_approximator_factored!(dX::TwoFactorRepresentation, P::SparseProjector, model::SparseLowRankModel, X, t)
-    rows!(model, dX.Z', X, t, indices(P))
-    copyto!(dX.U, weights(P))
+function evaluate_approximator!(dX, P::SparseProjector, model::SparseLowRankModel{false}, X, t)
+    rows = rows(model, X, t, indices(P))
+    mul!(dX, weights(P), rows)
 end
 
-function evaluate_approximator!(dX, P::AdjointSparseProjector, model::SparseLowRankModel, X, t)
+function evaluate_approximator!(dX, P::AdjointSparseProjector, model::SparseLowRankModel{true}, X, t)
     columns!(model, cache(P), X, t, indices(P))
     mul!(dX, cache(P), weights(P)')
 end
-function evaluate_approximator_factored!(dX::TwoFactorRepresentation, P::AdjointSparseProjector, model::SparseLowRankModel, X, t)
-    columns!(model, dX.U, X, t, indices(P))
-    copyto!(dX.Z, weights(P))
+function evaluate_approximator!(dX, P::AdjointSparseProjector, model::SparseLowRankModel{false}, X, t)
+    columns = columns(model, X, t, indices(P))
+    mul!(dX, columns, weights(P)')
 end
 
-function evaluate_approximator!(dX, P::SparseMatrixApproximator, model::SparseLowRankModel, X, t)
+function evaluate_approximator!(dX, P::SparseMatrixApproximator, model::SparseLowRankModel{true}, X, t)
     @unpack elements, rows, columns = cache(P)
     row_idcs, col_idcs = indices(P)
     elements!(model, elements, X, t, row_idcs, col_idcs)
@@ -204,12 +212,120 @@ function evaluate_approximator!(dX, P::SparseMatrixApproximator, model::SparseLo
         mul!(dX, weights(P.range), rows)
     end
 end
-function evaluate_approximator_factored!(dX::SVDLikeRepresentation, P::SparseMatrixApproximator, model::SparseLowRankModel, X, t)
+function evaluate_approximator!(dX, P::SparseMatrixApproximator, model::SparseLowRankModel{false}, X, t)
+    @unpack elements, rows, columns = cache(P)
+    row_idcs, col_idcs = indices(P)
+    elements .= elements(model, X, t, row_idcs, col_idcs)
+    if size(rows,2) <= size(columns,1)
+        mul!(rows, elements, weights(P.corange)')
+        mul!(dX, weights(P.range), rows)
+    else
+        mul!(columns, elements, weights(P.corange)')
+        mul!(dX, weights(P.range), rows)
+    end
+end
+
+"""
+    $(TYPEDSIGNATURES)
+    
+    inplace evaluation of sparse approximator in factored form 
+"""
+function evaluate_approximator_factored!(dX::TwoFactorRepresentation, P::SparseProjector, model::SparseLowRankModel{true}, X, t)
+    rows!(model, dX.Z', X, t, indices(P))
+    copyto!(dX.U, weights(P))
+end
+function evaluate_approximator_factored!(dX::TwoFactorRepresentation, P::AdjointSparseProjector, model::SparseLowRankModel{true}, X, t)
+    columns!(model, dX.U, X, t, indices(P))
+    copyto!(dX.Z, weights(P))
+end
+function evaluate_approximator_factored!(dX::SVDLikeRepresentation, P::SparseMatrixApproximator, model::SparseLowRankModel{true}, X, t)
     row_idcs, col_idcs = indices(P)
     elements!(model, dX.S, X, t, row_idcs, col_idcs)
     copyto!(dX.U, weights(P.range))
     copyto!(dX.V, weights(P.corange))
 end
+
+"""
+    $(TYPEDSIGNATURES)
+
+    inplace (in cache) evaluation of columns, rows, elements oracles
+"""
+function evaluate_oracles!(P::SparseMatrixApproximator, model::SparseLowRankModel{true}, X, t)
+    @unpack elements, rows, columns = cache(P)
+    @unpack range, corange = P
+
+    # rows/columns evaluation could be done in parallel
+    columns!(model, columns, X, t, indices(corange))
+    rows!(model, rows, X, t, indices(range))
+    @views copyto!(elements, rows[:, indices(corange)])
+end
+
+function evaluate_elements!(P::SparseMatrixApproximator, model::SparseLowRankModel{true}, X, t)
+    @unpack elements, rows, columns = cache(P)
+    elements!(model, elements, X, t, indices(P)...)
+end
+function evaluate_elements!(els::AbstractMatrix, P::SparseMatrixApproximator, model::SparseLowRankModel{true}, X, t)
+    elements!(model, els, X, t, indices(P)...)
+end
+
+function evaluate_rows!(P::SparseMatrixApproximator, model::SparseLowRankModel{true}, X, t)
+    @unpack elements, rows, columns = cache(P)
+    @unpack range, corange = P
+    rows!(model, rows, X, t, indices(range))
+end
+function evaluate_rows!(rows::AbstractMatrix, P::SparseMatrixApproximator, model::SparseLowRankModel{true}, X, t)
+    @unpack range, corange = P
+    rows!(model, rows, X, t, indices(range))
+end
+
+function evaluate_columns!(P::SparseMatrixApproximator, model::SparseLowRankModel{true}, X, t)
+    @unpack elements, rows, columns = cache(P)
+    @unpack range, corange = P
+    columns!(model, columns, X, t, indices(corange))
+end
+function evaluate_columns!(columns::AbstractMatrix,P::SparseMatrixApproximator, model::SparseLowRankModel{true}, X, t)
+    @unpack range, corange = P
+    columns!(model, columns, X, t, indices(corange))
+end
+
+function evaluate_oracles!(P::SparseMatrixApproximator, model::SparseLowRankModel{false}, X, t)
+    @unpack elements, rows, columns = cache(P)
+    @unpack range, corange = P
+
+    # rows/columns evaluation could be done in parallel
+    columns .= columns(model, X, t, indices(corange))
+    rows .= rows(model, X, t, indices(range))
+    @views copyto!(elements, rows[:, indices(corange)])
+end
+
+function evaluate_elements!(P::SparseMatrixApproximator, model::SparseLowRankModel{false}, X, t)
+    @unpack elements, rows, columns = cache(P)
+    elements .= elements(model, X, t, indices(P)...)
+end
+function evaluate_elements!(els::AbstractMatrix, P::SparseMatrixApproximator, model::SparseLowRankModel{false}, X, t)
+    els .= elements(model, X, t, indices(P)...)
+end
+
+function evaluate_rows!(P::SparseMatrixApproximator, model::SparseLowRankModel{false}, X, t)
+    @unpack elements, rows, columns = cache(P)
+    @unpack range, corange = P
+    rows .= rows(model, X, t, indices(range))
+end
+function evaluate_rows!(rows::AbstractMatrix, P::SparseMatrixApproximator, model::SparseLowRankModel{false}, X, t)
+    @unpack range, corange = P
+    rows .= rows(model, X, t, indices(range))
+end
+
+function evaluate_columns!(P::SparseMatrixApproximator, model::SparseLowRankModel{false}, X, t)
+    @unpack elements, rows, columns = cache(P)
+    @unpack range, corange = P
+    columns .= columns(model, X, t, indices(corange))
+end
+function evaluate_columns!(columns::AbstractMatrix, P::SparseMatrixApproximator, model::SparseLowRankModel{false}, X, t)
+    @unpack range, corange = P
+    columns .= columns(model, X, t, indices(corange))
+end
+
 
 """
     $(TYPEDSIGNATURES)
@@ -327,6 +443,11 @@ function index_selection(U, S::AbstractVector, alg::IndexSelectionAlgorithm)
     @assert size(U,2) == length(S) "Number of columns provided must coincide with number of singular values."
 
     cutoff = length(S)
+    # for interpolation rank adaption this needs to be revisited
+    # currently the rank can at most increase
+    # also we need a routine to update the necessary caches for 
+    # the sparse_approximator ...
+    # also for SparseInterpolationRK this is critical.
     for σ in reverse(S)
         if σ > alg.tol
             break
@@ -368,7 +489,7 @@ end
     update_scheme
     UF
     VF
-    sparse_approximator # add a chace dependent on update_scheme here when it comes to update_scheme 
+    sparse_approximator 
 end
 
 function SparseApproximation(selection_alg::IndexSelectionAlgorithm, 
@@ -395,8 +516,8 @@ function approximate_ranges!(SA::SparseApproximation, model, cache, t)
     if update_scheme == :avg_flow
         error("average flpw clustering needs to be implemented")
     elseif update_scheme == :last_iterate
-        rows!(model, sparse_approximator.cache.rows, X, t, sparse_approximator.range.indices)
-        columns!(model, sparse_approximator.cache.columns, X, t, sparse_approximator.corange.indices)
+        evaluate_rows!(sparse_approximator, model, X, t)
+        evaluate_columns!(sparse_approximator, model, X, t)
         UF .= svd!(sparse_approximator.cache.columns).U
         VF .= Matrix(svd!(sparse_approximator.cache.rows).V)
     elseif update_scheme == :kmeans

@@ -27,6 +27,21 @@ abstract type ExtendedLowRankRetraction <: LowRankRetraction end
 """
 abstract type LowRankRetractionCache end
 
+"""
+    ($TYPEDEF)
+
+    For efficient computations we need caches. If you register a cache for your new retraction,
+    subtype it with `LowRankStepperCache`. There a few things that need to have dispatches.
+
+    state(cache::YourLowRankStepperCache)
+    update_cache!(cache::YourLowRankStepperCache, SA::SparseApproximation)
+
+    Every `LowRankStepperCache` should have a dispatch for `state(cache)` which should
+    return the low-rank approximation representing the current state X̂.
+"""
+abstract type LowRankStepperCache end
+
+
 abstract type AbstractLowRankModel end
 """
     $(TYPEDEF)
@@ -134,21 +149,65 @@ function update_sol!(sol::DLRASolution, cache, t_, SA)
     end
 end
 
-function solve(prob::MatrixDEProblem, h::Number, R::LowRankRetraction, SA = missing) 
+"""
+    supertype for all integration routines
+"""
+abstract type LowRankStepper end
+
+function interleave_grids(t_grid, t_save)
+    t_grid_extended = sort(unique(vcat(t_grid, t_save)))
+    save_idcs = Int[]
+    k = 1
+    for (i,t) in enumerate(t_grid_extended)
+        if t == t_save[k] 
+            push!(save_idcs, i)
+            k += 1
+        end
+    end
+    return t_grid_extended, save_idcs
+end
+save_grid(t_grid, ::Missing, tspan) = t_grid, 1:length(t_grid)
+function save_grid(t_grid, dt_save::Number, tspan)
+    t0, tf = tspan
+    t_save = collect(t0:dt_save:tf)
+    if !(tf == tsave[end])
+        push!(t_save, tf)
+    end
+    return interleave_grids(t_grid, t_save)
+end
+function save_grid(t_grid, t_save::AbstractVector, tspan)
+    t0, tf = tspan
+    @assert issorted(t_save) "list of saved timepoints must be sorted"
+    @assert t_save[1] >= t0 "saved timepoint cannot be before t0"
+    @assert t_save[end] <= tf "saved timepoint cannot be after tf"
+    t_save = collect(t_save)
+    if t_save[1] != t0
+        pushfirst!(t0, t_save)
+    end
+    if t_save[end] != tf
+        push!(tf, t_save)
+    end
+    return interleave_grids(t_grid, t_save)
+end
+function solve(prob::MatrixDEProblem, h::Number, stepper::LowRankStepper, SA = missing;
+               saveat = missing)
     t0, tf = prob.tspan
     t_grid = collect(t0:h:tf)
     if !(t_grid[end] == tf)
         push!(t_grid, tf)
     end
-    solve(prob, t_grid, R, SA)
+    solve(prob, t_grid, stepper, SA; saveat=saveat)
 end
 
-function solve(prob::MatrixDEProblem, t_grid::AbstractVector, R::LowRankRetraction, SA = missing)
+function solve(prob::MatrixDEProblem, t_grid::AbstractVector, stepper::LowRankStepper, SA = missing;
+               saveat=missing)
     SA = deepcopy(SA) # do not alter input!
 
     @unpack model, tspan, X0 = prob
     t0, tf = tspan
     
+    t_grid, save_idcs = save_grid(t_grid, saveat, tspan)
+
     @assert t_grid[1] == t0 "The first entry of integration time grid must 
                             coincide with initial time as specified in the problem."
 
@@ -158,18 +217,19 @@ function solve(prob::MatrixDEProblem, t_grid::AbstractVector, R::LowRankRetracti
     @assert issorted(t_grid) || issorted(tgrid, rev=true) "The integration time grid must be sorted."
     
     sol = initialize_sol(prob, SA)
-    cache = initialize_cache(prob, R, SA)
+    cache = initialize_cache(prob, stepper, SA)
 
     n_steps = length(t_grid) - 1 
     progressmeter = Progress(n_steps)
 
+    k = 2
     @inbounds for i in 1:n_steps
         t = t_grid[i]
         t_new = t_grid[i+1]
         h = t_new - t
         
         # take step with stepsize h
-        retracted_step!(cache, model, t, h, R, SA)
+        retracted_step!(cache, model, t, h, stepper, SA)
     
         # postprocess the state
         postprocess_step!(cache, model, t_new)
@@ -178,7 +238,10 @@ function solve(prob::MatrixDEProblem, t_grid::AbstractVector, R::LowRankRetracti
         update_sparse_approximation!(SA, model, cache, t_new)        
 
         # update solution
-        update_sol!(sol, cache, t_new, SA)
+        if i + 1 == save_idcs[k]
+            update_sol!(sol, cache, t_new, SA)
+            k += 1
+        end
         
         # update progress meter
         next!(progressmeter)
@@ -188,4 +251,3 @@ function solve(prob::MatrixDEProblem, t_grid::AbstractVector, R::LowRankRetracti
     sol
 end
 
-#abstract type LowRankStepper end
