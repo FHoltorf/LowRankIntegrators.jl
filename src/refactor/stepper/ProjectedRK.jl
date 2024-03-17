@@ -57,8 +57,6 @@ function retracted_step!(cache::PRKCache, model::AbstractLowRankModel, t, h, PRK
     for i in 2:s
         # compute intermediate slope dη
         slope_core = BlockDiagonal([(h*a[i-1][j]) * ks[j].S for j in nz_stageweights[i-1]])
-        #println(stage_ranges[i-1])
-        #println(i)
         dη = SVDLikeRepresentation(slope_range[:,stage_ranges[i-1]], 
                                    slope_core, 
                                    slope_corange[:,stage_ranges[i-1]])
