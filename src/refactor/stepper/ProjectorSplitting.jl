@@ -149,9 +149,9 @@ function retracted_step!(cache, model::AbstractLowRankModel, t, h, ::LieTrotterS
 end
 
 function retracted_step!(cache, model::AbstractLowRankModel, t, h, ::StrangStepper, SA)
-    K_step!(cache, model, t, h, SA)
-    S_step!(cache, model, t, h, SA)
-    L_step!(cache, model, t, h, SA)
+    K_step!(cache, model, t, h/2, SA)
+    S_step!(cache, model, t, h/2, SA)
+    L_step!(cache, model, t, h/2, SA)
 
     update_cache!(cache, SA)
 
