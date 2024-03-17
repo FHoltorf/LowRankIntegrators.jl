@@ -2,7 +2,7 @@
 """
     X.U and X.V must be orthogonal for this to work
 """
-evaluate_tangent_model(X::SVDLikeRepresentation, model::FactoredLowRankModel{false}, t, SA) = evaluate_tangent_model(X, model, t, SA)
+evaluate_tangent_model(X::SVDLikeRepresentation, model::FactoredLowRankModel{false}, t, SA) = evaluate_tangent_model(X, model, t)
 function evaluate_tangent_model(X::SVDLikeRepresentation, model::FactoredLowRankModel{false}, t)
     dX = F(model,X,t)
 
@@ -10,7 +10,8 @@ function evaluate_tangent_model(X::SVDLikeRepresentation, model::FactoredLowRank
     dXV = dX*X.V
     dXᵀU = dX'*X.U
     UᵀdXV = dXᵀU'*X.V
-
+    
+    r=rank(X)
     ΠdX_range = [X.U dXV]
     ΠdX_core = [I -UᵀdXV; zeros(r,r) I]
     ΠdX_corange = [dXᵀU X.V]
