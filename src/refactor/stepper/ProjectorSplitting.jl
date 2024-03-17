@@ -166,6 +166,13 @@ end
 function K_step!(cache::LieTrotterCache, model, t, h, SA)
     @unpack X, K0, K_integrator = cache
 
+    if !ismissing(SA)
+        @unpack sparse_approximation_cache = cache
+        @unpack PK = sparse_approximation_cache
+        @unpack sparse_approximator = SA
+        mul!(PK.weights, X.V', sparse_approximator.corange.weights)
+    end
+
     mul!(K0, X.U, X.S)
     set_u!(K_integrator, K0)
     step!(K_integrator, h, true)
@@ -177,17 +184,13 @@ end
 function S_step!(cache::LieTrotterCache, model, t, h, SA)
     @unpack X, S_integrator = cache
 
-    set_u!(S_integrator, X.S) 
-    step!(S_integrator, h, true)
-    X.S .= S_integrator.u
-end
-function S_step!(cache::LieTrotterCache, model::SparseLowRankModel{true}, t, h, SA)
-    @unpack X, S_integrator, sparse_approximation_cache = cache
-    @unpack PS = sparse_approximation_cache
-    @unpack sparse_approximator = SA
-    
-    mul!(PS.range.weights, X.U', sparse_approximator.range.weights)
-    mul!(PS.corange.weights, X.V', sparse_approximator.corange.weights)
+    if !ismissing(SA)
+        @unpack sparse_approximation_cache = cache
+        @unpack PS = sparse_approximation_cache
+        @unpack sparse_approximator = SA
+        mul!(PS.range.weights, X.U', sparse_approximator.range.weights)
+        mul!(PS.corange.weights, X.V', sparse_approximator.corange.weights)
+    end
 
     set_u!(S_integrator, X.S) 
     step!(S_integrator, h, true)
@@ -195,6 +198,13 @@ function S_step!(cache::LieTrotterCache, model::SparseLowRankModel{true}, t, h, 
 end
 function L_step!(cache::LieTrotterCache, model, t, h, SA)
     @unpack X, L0, S_integrator, L_integrator = cache
+
+    if !ismissing(SA)
+        @unpack sparse_approximation_cache = cache
+        @unpack PL = sparse_approximation_cache
+        @unpack sparse_approximator = SA
+        mul!(PL.weights, X.U', sparse_approximator.range.weights)
+    end 
 
     mul!(L0,X.V,X.S')
     set_u!(L_integrator, L0)
@@ -212,10 +222,8 @@ function update_cache!(cache::LieTrotterCache, SA::SparseApproximation)
     @unpack PK, PL, PS = sparse_approximation_cache
     @unpack sparse_approximator = SA
     
-    mul!(PK.weights, X.V', sparse_approximator.corange.weights)
     PK.indices .= sparse_approximator.corange.indices
 
-    mul!(PL.weights, X.U', sparse_approximator.range.weights)
     PL.indices .= sparse_approximator.range.indices 
 
     PS.range.indices .= sparse_approximator.range.indices 
