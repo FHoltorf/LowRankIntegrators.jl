@@ -293,6 +293,13 @@ function evaluate_oracles!(P::SparseMatrixApproximator, model::SparseLowRankMode
     @unpack range, corange = P
 
     # rows/columns evaluation could be done in parallel
+    println(size(columns))
+    println(indices(corange))
+    println(typeof(X))
+    println(typeof(model))
+    println(t)
+    test=columns(model, X, t, indices(corange))
+    println(size(test))
     columns .= columns(model, X, t, indices(corange))
     rows .= rows(model, X, t, indices(range))
     @views copyto!(elements, rows[:, indices(corange)])
@@ -388,6 +395,15 @@ LDEIM( ;tol = eps(Float64), rmin = 1, rmax = 2^62, elasticity = 0.1) = LDEIM(tol
 
 
 """
+    $(TYPEDEF)
+
+    GappyPOD+E index selection algorithm.
+"""
+struct GappyPODE <: IndexSelectionAlgorithm 
+    m::Int
+end
+
+"""
     $(TYPEDSIGNATURES)
 
     returns approximation indices for sparse approximation. Supports DEIM and QDEIM index selection.
@@ -478,6 +494,22 @@ function index_selection(U, S::AbstractVector, alg::LDEIM)
     return index_selection(U, r, alg)
 end
 
+function index_selection(U, gpode::GappyPODE)
+    indices = index_selection(U, DEIM())
+    for k in 1:gpode.m
+        _, S, W = svd(U[indices, :])
+        g = S[end-1]^2 - S[end]^2
+        Ub = W'*U'
+        u = vec(sum(Ub .^ 2, dims = 1))
+        r = g .+ u
+        r .-= sqrt.(abs.((g .+ u).^2 .- 4 * g * Ub[end,:].^2))
+        candidates = sortperm(r, rev = true)
+        idx = findfirst(x -> !(x in indices), candidates)
+        push!(indices, idx)
+    end
+    return indices
+end
+
 """
     $(TYPEDEF)
 
@@ -518,8 +550,8 @@ function approximate_ranges!(SA::SparseApproximation, model, cache, t)
     elseif update_scheme == :last_iterate
         evaluate_rows!(sparse_approximator, model, X, t)
         evaluate_columns!(sparse_approximator, model, X, t)
-        UF .= svd!(sparse_approximator.cache.columns).U
-        VF .= Matrix(svd!(sparse_approximator.cache.rows).V)
+        UF .= svd!(sparse_approximator.cache.columns).U[:, 1:size(UF,2)]
+        VF .= Matrix(svd!(sparse_approximator.cache.rows).V[:, 1:size(VF,2)])
     elseif update_scheme == :kmeans
         projected_cols = X.S*X.V'
         projected_rows = X.S'*X.U'
