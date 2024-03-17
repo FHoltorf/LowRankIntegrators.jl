@@ -22,6 +22,8 @@ end
     X
     ks # low rank factorizations => s times
     ηs # intermediate points => (s-1) times (the first one is X)
+    nz_stageweights
+    stage_ranges 
     slope_range # n x 2*s*r
     slope_corange # m x 2*s*r
 end
@@ -32,17 +34,19 @@ function initialize_cache(prob, PRK::ProjectedRK, SA)
     s = PRK.tableau.s
     n, m = size(X)
     r = rank(X)
-    slope_range = zeros(n, 2*s*r)
-    slope_corange = zeros(m, 2*s*r)
+    slope_range = zeros(eltype(X), n, 2*s*r)
+    slope_corange = zeros(eltype(X), m, 2*s*r)
+    nz_stageweights = [[i for (i, a) in enumerate(stage) if a != 0.0] for stage in PRK.tableau.a]
+    stage_ranges = [reduce(vcat, (l-1)*2r+1:l*2r for l in stages) for stages in nz_stageweights]
     ks = [deepcopy(X) for i in 1:s]
     ηs = [deepcopy(X) for i in 1:s]
-    return PRKCache(X, ks, ηs, slope_range, slope_corange)
+    return PRKCache(X, ks, ηs, nz_stageweights, stage_ranges, slope_range, slope_corange)
 end
 # pseudocode
 function retracted_step!(cache::PRKCache, model::AbstractLowRankModel, t, h, PRK::ProjectedRK, SA)
     @unpack R, tableau = PRK
     @unpack a, b, c, s = tableau
-    @unpack X, ks, ηs, slope_range, slope_corange = cache
+    @unpack X, ks, ηs, slope_range, slope_corange, stage_ranges, nz_stageweights = cache
 
     r = rank(X)
     ηs[1] = X
@@ -52,10 +56,12 @@ function retracted_step!(cache::PRKCache, model::AbstractLowRankModel, t, h, PRK
 
     for i in 2:s
         # compute intermediate slope dη
-        slope_core = BlockDiagonal([(h*a[i-1][j]) * ks[j].S for j in 1:i-1])
-        dη = SVDLikeRepresentation(slope_range[:,1:2*(i-1)*r], 
+        slope_core = BlockDiagonal([(h*a[i-1][j]) * ks[j].S for j in nz_stageweights[i-1]])
+        #println(stage_ranges[i-1])
+        #println(i)
+        dη = SVDLikeRepresentation(slope_range[:,stage_ranges[i-1]], 
                                    slope_core, 
-                                   slope_corange[:,1:2*(i-1)*r])
+                                   slope_corange[:,stage_ranges[i-1]])
 
         # compute intermediate step
         # make this cached in the long term (should be straightforward)
