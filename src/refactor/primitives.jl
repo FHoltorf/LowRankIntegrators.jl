@@ -235,7 +235,9 @@ function solve(prob::MatrixDEProblem, t_grid::AbstractVector, stepper::LowRankSt
         postprocess_step!(cache, model, t_new)
 
         # update sparse approximation if necessary
-        update_sparse_approximation!(SA, model, cache, t_new)        
+        if !ismissing(SA)
+            update_sparse_approximation!(SA, model, cache, t_new)        
+        end
 
         # update solution
         if i + 1 == save_idcs[k]
