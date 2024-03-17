@@ -179,6 +179,7 @@ function S_step!(cache::LieTrotterCache, model, t, h, SA)
 
     set_u!(S_integrator, X.S) 
     step!(S_integrator, h, true)
+    X.S .= S_integrator.u
 end
 function S_step!(cache::LieTrotterCache, model::SparseLowRankModel{true}, t, h, SA)
     @unpack X, S_integrator, sparse_approximation_cache = cache
@@ -190,11 +191,12 @@ function S_step!(cache::LieTrotterCache, model::SparseLowRankModel{true}, t, h, 
 
     set_u!(S_integrator, X.S) 
     step!(S_integrator, h, true)
+    X.S .= S_integrator.u
 end
 function L_step!(cache::LieTrotterCache, model, t, h, SA)
     @unpack X, L0, S_integrator, L_integrator = cache
 
-    mul!(L0,X.V,S_integrator.u')
+    mul!(L0,X.V,X.S')
     set_u!(L_integrator, L0)
     step!(L_integrator, h, true)
     L0 .= L_integrator.u # maybe can save this
