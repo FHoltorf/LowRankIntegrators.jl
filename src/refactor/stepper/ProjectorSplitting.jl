@@ -153,7 +153,9 @@ function retracted_step!(cache, model::AbstractLowRankModel, t, h, ::StrangStepp
     S_step!(cache, model, t, h/2, SA)
     L_step!(cache, model, t, h/2, SA)
 
-    update_cache!(cache, SA)
+    if !ismissing(SA)
+        update_cache!(cache, SA)
+    end
 
     L_step!(cache, model, t + h/2, h/2, SA)
     S_step!(cache, model, t + h/2, h/2, SA)
