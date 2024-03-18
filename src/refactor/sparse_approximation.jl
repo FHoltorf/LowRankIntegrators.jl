@@ -293,13 +293,6 @@ function evaluate_oracles!(P::SparseMatrixApproximator, model::SparseLowRankMode
     @unpack range, corange = P
 
     # rows/columns evaluation could be done in parallel
-    println(size(columns))
-    println(indices(corange))
-    println(typeof(X))
-    println(typeof(model))
-    println(t)
-    test=columns(model, X, t, indices(corange))
-    println(size(test))
     columns .= columns(model, X, t, indices(corange))
     rows .= rows(model, X, t, indices(range))
     @views copyto!(elements, rows[:, indices(corange)])
@@ -579,18 +572,19 @@ end
 function update_sparse_approximation!(SA::SparseApproximation, model, cache, t)
     @unpack selection_alg, sparse_approximator = SA
     approximate_ranges!(SA, model, cache, t)
-    
+    X = state(cache)
     row_indices = index_selection(SA.UF, selection_alg)
     col_indices = index_selection(SA.VF, selection_alg)
     
-    # here we could reevaluate F at the new inidices instead! (no SVD necessary technically.)
-    # will likely be necessary when rank adaptation is implemented
+    # do that optionally? 
+    rows!(model, SA.VF', X, t, row_indices)
+    columns!(model, SA.UF, X, t, col_indices)
 
     # e.g. update_ranges!() 
-    sparse_approximator.range.weights .= SA.UF/SA.UF[row_indices,:]
     sparse_approximator.range.indices .= row_indices
-    sparse_approximator.corange.weights .= SA.VF/SA.VF[col_indices,:]
     sparse_approximator.corange.indices .= col_indices
+    sparse_approximator.range.weights .= SA.UF/SA.UF[row_indices,:]
+    sparse_approximator.corange.weights .= SA.VF/SA.VF[col_indices,:]
     
     update_cache!(cache, SA) 
 end
