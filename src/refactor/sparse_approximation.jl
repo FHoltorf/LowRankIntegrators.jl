@@ -572,14 +572,9 @@ end
 function update_sparse_approximation!(SA::SparseApproximation, model, cache, t)
     @unpack selection_alg, sparse_approximator = SA
     approximate_ranges!(SA, model, cache, t)
-    X = state(cache)
     row_indices = index_selection(SA.UF, selection_alg)
     col_indices = index_selection(SA.VF, selection_alg)
     
-    # do that optionally? 
-    rows!(model, SA.VF', X, t, row_indices)
-    columns!(model, SA.UF, X, t, col_indices)
-
     # e.g. update_ranges!() 
     sparse_approximator.range.indices .= row_indices
     sparse_approximator.corange.indices .= col_indices
