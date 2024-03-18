@@ -177,21 +177,14 @@ end
 function S_step!(cache::BUGCache, model, t, h, SA)
     @unpack X, S1, M, N, S_integrator = cache
     
-    mul!(S1, M, X.S)
-    mul!(X.S, S1, N') 
-    set_u!(S_integrator, X.S) 
-    step!(S_integrator, h, true)
-    X.S .= S_integrator.u
-end
-function S_step!(cache::BUGCache, model::SparseLowRankModel, t, h, SA)
-    @unpack X, S1, M, N, S_integrator, sparse_approximation_cache = cache
-    @unpack PS = sparse_approximation_cache
-    @unpack sparse_approximator = SA
-    
-    mul!(PS.range.weights, X.U', sparse_approximator.range.weights)
-    mul!(PS.corange.weights, X.V', sparse_approximator.corange.weights)
-
-
+    if !ismissing(SA)
+        @unpack sparse_approximation_cache = cache
+        @unpack PS = sparse_approximation_cache
+        @unpack sparse_approximator = SA
+        
+        mul!(PS.range.weights, X.U', sparse_approximator.range.weights)
+        mul!(PS.corange.weights, X.V', sparse_approximator.corange.weights)
+    end
     mul!(S1, M, X.S)
     mul!(X.S, S1, N') 
     set_u!(S_integrator, X.S) 
