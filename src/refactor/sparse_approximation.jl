@@ -543,8 +543,16 @@ function approximate_ranges!(SA::SparseApproximation, model, cache, t)
     elseif update_scheme == :last_iterate
         evaluate_rows!(sparse_approximator, model, X, t)
         evaluate_columns!(sparse_approximator, model, X, t)
-        UF .= svd!(sparse_approximator.cache.columns).U[:, 1:size(UF,2)]
-        VF .= Matrix(svd!(sparse_approximator.cache.rows).V[:, 1:size(VF,2)])
+        
+        Q,R = qr(sparse_approximator.cache.columns)
+        U,S,V= svd(R*sparse_approximator.corange.weights')
+        mul!(UF,Q,U)
+
+        Q,R = qr(sparse_approximator.cache.rows')
+        U,S,V = svd(R*sparse_approximator.range.weights')
+        mul!(VF,Q,U)
+        #UF = svd!(sparse_approximator.cache.columns).U[:, 1:size(UF,2)]
+        #VF = Matrix(svd!(sparse_approximator.cache.rows).V[:, 1:size(VF,2)])
     elseif update_scheme == :kmeans
         projected_cols = X.S*X.V'
         projected_rows = X.S'*X.U'
