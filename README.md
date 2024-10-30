@@ -5,6 +5,8 @@
 
 LowRankIntegrators.jl is a package for dynamical low rank approximation (DLRA) in Julia. DLRA can help you approximate the solution to (otherwise intractably) large matrix-valued ODEs. 
 
+Please see my talk at JuliaCon [https://www.youtube.com/watch?v=bVwVhDud9uo&t=85s&ab_channel=TheJuliaProgrammingLanguage](https://www.youtube.com/watch?v=bVwVhDud9uo&t=85s&ab_channel=TheJuliaProgrammingLanguage) for a brief introduction to the main ideas. 
+
 ## Concept
 Given a matrix-valued ODE, 
 
